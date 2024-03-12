@@ -81,6 +81,7 @@ def test(data, test_mask, neg_sampler, split_mode, subset=False):
 
 def get_args():
     parser = argparse.ArgumentParser('*** TGB: EdgeBank ***')
+    parser.add_argument('--subset', type=bool, help='Use subset of the data', default=True)
     parser.add_argument('-d', '--data', type=str, help='Dataset name', default='tgbl-comment', choices=['tgbl-coin', 'tgbl-comment', 'tgbl-flight', 'tgbl-review', 'tgbl-wiki'])
     parser.add_argument('--run', type=str, help='Run name', default='run1')
     parser.add_argument('--k_value', type=int, help='k_value for computing ranking metrics', default=10)
@@ -113,6 +114,7 @@ K_VALUE = args.k_value
 TIME_WINDOW_RATIO = args.time_window_ratio
 DATA = args.data
 run_name = args.run
+subset = args.subset
 
 MODEL_NAME = 'EdgeBank'
 
@@ -165,7 +167,7 @@ dataset.load_val_ns()
 
 # testing ...
 start_val = timeit.default_timer()
-perf_metric_val = test(data, val_mask, neg_sampler, split_mode='val', subset=True)
+perf_metric_val = test(data, val_mask, neg_sampler, split_mode='val', subset=subset)
 end_val = timeit.default_timer()
 
 print(f"INFO: val: Evaluation Setting: >>> ONE-VS-MANY <<< ")
@@ -182,7 +184,7 @@ dataset.load_test_ns()
 
 # testing ...
 start_test = timeit.default_timer()
-perf_metric_test = test(data, test_mask, neg_sampler, split_mode='test', subset=True)
+perf_metric_test = test(data, test_mask, neg_sampler, split_mode='test', subset=subset)
 end_test = timeit.default_timer()
 
 print(f"INFO: Test: Evaluation Setting: >>> ONE-VS-MANY <<< ")
@@ -193,6 +195,7 @@ print(f"\tTest: Elapsed Time (s): {test_time: .4f}")
 save_results({'model': MODEL_NAME,
               'memory_mode': MEMORY_MODE,
               'data': DATA,
+              'subset': subset,
               'run': run_name,
               'seed': SEED,
               'val '+metric: perf_metric_val,
