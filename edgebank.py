@@ -31,7 +31,7 @@ from tgb.utils.utils import save_results
 # ==================
 # ==================
 
-def test(data, test_mask, neg_sampler, split_mode, subset=False):
+def test(data, test_mask, neg_sampler, split_mode, subset='False'):
     r"""
     Evaluated the dynamic link prediction
     Evaluation happens as 'one vs. many', meaning that each positive edge is evaluated against many negative edges
@@ -44,7 +44,7 @@ def test(data, test_mask, neg_sampler, split_mode, subset=False):
     Returns:
         perf_metric: the result of the performance evaluation
     """
-    if subset == True:
+    if subset == 'True':
         print("INFO: Subset is True")
         num_batches = 2
     else:
@@ -83,7 +83,7 @@ def test(data, test_mask, neg_sampler, split_mode, subset=False):
 
 def get_args():
     parser = argparse.ArgumentParser('*** TGB: EdgeBank ***')
-    parser.add_argument('--subset', type=str, help='Subset of the dataset', default=False)
+    parser.add_argument('--subset', type=str, help='Subset of the dataset', default='False', choices=['True', 'False'])
     parser.add_argument('-d', '--data', type=str, help='Dataset name', default='tgbl-comment', choices=['tgbl-coin', 'tgbl-comment', 'tgbl-flight', 'tgbl-review', 'tgbl-wiki'])
     parser.add_argument('--run', type=str, help='Run name', default='run1')
     parser.add_argument('--k_value', type=int, help='k_value for computing ranking metrics', default=10)
