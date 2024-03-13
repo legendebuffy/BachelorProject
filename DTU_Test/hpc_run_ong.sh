@@ -19,9 +19,9 @@
 #BSUB -N
 
 ## since all commands are from xterm's cd,
-## remember to place xterm cd in git folder: "ProjectWork2023"
+## remember to place xterm cd in git folder: "BachelorProject"
 
-source env_BScP/bin/activate
+source ../env_BScP/bin/activate
 
-## SleepEEG -> Epilepsy (n2: 2hr)
-python code/main.py --training_mode fine_tune_test --pretrain_dataset SleepEEG --target_dataset Epilepsy --subset False --device cuda
+# Edgebank, u_coin
+python edgebank.py --subset True -d tgbl-coin --run run1 --seed 1
