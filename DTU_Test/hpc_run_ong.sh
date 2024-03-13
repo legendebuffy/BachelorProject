@@ -1,25 +1,24 @@
 #!/bin/bash
-#BSUB -J Edgebank-u_coin_subset
-## ps (pretrain-subset), f (tinetune-nosubset)
-#BSUB -o hpc/runs/Run_%J.out.txt
-#BSUB -e hpc/runs/Run_%J.err.txt
+#BSUB -J EU_coin_s
+## 'EU'=Edgebank-unlimited ; 's'=subset
+
+## output files
+#BSUB -o ../hpc_runs/Run_%J.out.txt
+#BSUB -e ../hpc_runs/Run_%J.err.txt
 
 ## GPU
-#BSUB -q gpuv100
+#BSUB -q gpua100
 #BSUB -gpu "num=1:mode=exclusive_process"
+#BSUB -R "rusage[mem=8GB] span[hosts=1]"
+#BSUB -n 4
 
 ## runtime
 #BSUB -W 1:00
 
-## specs
-#BSUB -R "rusage[mem=8GB] span[hosts=1]"
-#BSUB -n 1
-
 ## mail when done
 #BSUB -N
 
-## since all commands are from xterm's cd,
-## remember to place xterm cd in git folder: "BachelorProject"
+## since all commands are from cmd's cwd, remember to place cwd in git folder: "BachelorProject"
 
 source ../env_BScP/bin/activate
 
