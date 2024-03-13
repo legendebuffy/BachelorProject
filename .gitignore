@@ -15,7 +15,7 @@
 *.pkl
 *.txt
 !dtu_requirements.txt
-!requirements_adjusted.txt
+!requirements_*.txt
 # Byte-compiled / optimized / DLL files
 __pycache__/
 raw/
