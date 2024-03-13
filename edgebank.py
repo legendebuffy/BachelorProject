@@ -44,9 +44,11 @@ def test(data, test_mask, neg_sampler, split_mode, subset=False):
     Returns:
         perf_metric: the result of the performance evaluation
     """
-    if subset:
+    if subset == True:
+        print("INFO: Subset is True")
         num_batches = 2
     else:
+        print("INFO: Subset is False")
         num_batches = math.ceil(len(data['sources'][test_mask]) / BATCH_SIZE)
     perf_list = []
     for batch_idx in tqdm(range(num_batches)):
@@ -81,7 +83,7 @@ def test(data, test_mask, neg_sampler, split_mode, subset=False):
 
 def get_args():
     parser = argparse.ArgumentParser('*** TGB: EdgeBank ***')
-    parser.add_argument('--subset', type=str, help='Subset of the dataset', default=True)
+    parser.add_argument('--subset', type=str, help='Subset of the dataset', default=False)
     parser.add_argument('-d', '--data', type=str, help='Dataset name', default='tgbl-comment', choices=['tgbl-coin', 'tgbl-comment', 'tgbl-flight', 'tgbl-review', 'tgbl-wiki'])
     parser.add_argument('--run', type=str, help='Run name', default='run1')
     parser.add_argument('--k_value', type=int, help='k_value for computing ranking metrics', default=10)
@@ -116,6 +118,7 @@ DATA = args.data
 run_name = args.run
 SUBSET = args.subset
 
+print(f"INFO: Subset: {SUBSET}")
 MODEL_NAME = 'EdgeBank'
 
 # data loading with `numpy`
