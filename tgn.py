@@ -42,7 +42,7 @@ from tgb.linkproppred.dataset_pyg import PyGLinkPropPredDataset
 # ========== Define helper function...
 # ==========
 
-def train():
+def train(subset:str='False'):
     r"""
     Training procedure for TGN model
     This function uses some objects that are globally defined in the current scrips 
@@ -62,6 +62,8 @@ def train():
     neighbor_loader.reset_state()  # Start with an empty graph.
 
     total_loss = 0
+    if subset=='True':
+        train_loader = train_loader[:1]
     for batch in train_loader:
         batch = batch.to(device)
         optimizer.zero_grad()
@@ -105,6 +107,9 @@ def train():
         optimizer.step()
         model['memory'].detach()
         total_loss += float(loss) * batch.num_events
+
+        if subset=='True':
+            break
 
     return total_loss / train_data.num_events
 
@@ -205,6 +210,7 @@ TOLERANCE = args.tolerance
 PATIENCE = args.patience
 NUM_RUNS = args.num_run
 NUM_NEIGHBORS = 10
+SUBSET = args.subset
 RUN = args.run
 
 logs_save_dir = args.logs_save_dir

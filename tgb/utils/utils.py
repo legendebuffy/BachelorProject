@@ -58,6 +58,8 @@ def get_args():
     parser.add_argument('--num_run', type=int, help='Number of iteration runs', default=1)
     parser.add_argument('--logs_save_dir', type=str, help='saving directory', default='experiments_logs')
     parser.add_argument('--run', type=str, help='Run name', default='run1')
+    parser.add_argument('--subset', type=str, help='Subset of the dataset', default='False')
+
     try:
         args = parser.parse_args()
     except:
