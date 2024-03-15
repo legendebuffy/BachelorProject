@@ -62,9 +62,8 @@ def train(subset:str='False'):
     neighbor_loader.reset_state()  # Start with an empty graph.
 
     total_loss = 0
-    if subset=='True':
-        train_loader = train_loader[:1]
     for batch in train_loader:
+
         batch = batch.to(device)
         optimizer.zero_grad()
 
@@ -115,7 +114,7 @@ def train(subset:str='False'):
 
 
 @torch.no_grad()
-def test(loader, neg_sampler, split_mode):
+def test(loader, neg_sampler, split_mode, subset):
     r"""
     Evaluated the dynamic link prediction
     Evaluation happens as 'one vs. many', meaning that each positive edge is evaluated against many negative edges
@@ -133,13 +132,16 @@ def test(loader, neg_sampler, split_mode):
 
     perf_list = []
 
-    for pos_batch in loader:
+    for idx, pos_batch in enumerate(loader):
         pos_src, pos_dst, pos_t, pos_msg = (
             pos_batch.src,
             pos_batch.dst,
             pos_batch.t,
             pos_batch.msg,
         )
+
+        # logging
+        logger.debug("Testing on batch: {}".format(idx))
 
         neg_batch_list = neg_sampler.query_batch(pos_src, pos_dst, pos_t, split_mode=split_mode)
 
@@ -176,10 +178,13 @@ def test(loader, neg_sampler, split_mode):
                 "eval_metric": [metric],
             }
             perf_list.append(evaluator.eval(input_dict)[metric])
-
+        
         # Update memory and neighbor loader with ground-truth state.
         model['memory'].update_state(pos_src, pos_dst, pos_t, pos_msg)
         neighbor_loader.insert(pos_src, pos_dst)
+
+        if subset=='True':
+            break
 
     perf_metrics = float(torch.tensor(perf_list).mean())
 
@@ -333,14 +338,14 @@ for run_idx in range(NUM_RUNS):
     for epoch in range(1, NUM_EPOCH + 1):
         # training
         start_epoch_train = timeit.default_timer()
-        loss = train()
+        loss = train(SUBSET)
         logger.debug(
             f"Epoch: {epoch:02d}, Loss: {loss:.4f}, Training elapsed Time (s): {timeit.default_timer() - start_epoch_train: .4f}"
         )
 
         # validation
         start_val = timeit.default_timer()
-        perf_metric_val = test(val_loader, neg_sampler, split_mode="val")
+        perf_metric_val = test(val_loader, neg_sampler, split_mode="val", subset=SUBSET)
         logger.debug(f"\tValidation {metric}: {perf_metric_val: .4f}")
         logger.debug(f"\tValidation: Elapsed time (s): {timeit.default_timer() - start_val: .4f}")
         val_perf_list.append(perf_metric_val)
@@ -358,10 +363,11 @@ for run_idx in range(NUM_RUNS):
 
     # loading the test negative samples
     dataset.load_test_ns()
-
+    
     # final testing
+    logger.debug("Starting final test...")
     start_test = timeit.default_timer()
-    perf_metric_test = test(test_loader, neg_sampler, split_mode="test")
+    perf_metric_test = test(test_loader, neg_sampler, split_mode="test", subset=SUBSET)
 
     logger.debug(f"INFO: Test: Evaluation Setting: >>> ONE-VS-MANY <<< ")
     logger.debug(f"\tTest: {metric}: {perf_metric_test: .4f}")
