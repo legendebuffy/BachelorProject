@@ -7,6 +7,7 @@ import sys
 import argparse
 import json
 import io
+import logging
 
 
 # import torch
@@ -55,7 +56,8 @@ def get_args():
     parser.add_argument('--tolerance', type=float, help='Early stopper tolerance', default=1e-6)
     parser.add_argument('--patience', type=float, help='Early stopper patience', default=5)
     parser.add_argument('--num_run', type=int, help='Number of iteration runs', default=1)
-
+    parser.add_argument('--logs_save_dir', type=str, help='saving directory', default='experiments_logs')
+    parser.add_argument('--run', type=str, help='Run name', default='run1')
     try:
         args = parser.parse_args()
     except:
@@ -84,3 +86,24 @@ def save_results(new_results: dict, filename: str):
         # dump the results
         with open(filename, 'w') as json_file:
             json.dump(new_results, json_file, indent=4)
+
+
+def _logger(logger_name, level=logging.DEBUG):
+    """
+    Method to return a custom logger with the given name and level
+    """
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(level)
+    # format_string = ("%(asctime)s — %(name)s — %(levelname)s — %(funcName)s:"
+    #                 "%(lineno)d — %(message)s")
+    format_string = "%(message)s"
+    log_format = logging.Formatter(format_string)
+    # Creating and adding the console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(log_format)
+    logger.addHandler(console_handler)
+    # Creating and adding the file handler
+    file_handler = logging.FileHandler(logger_name, mode='a')
+    file_handler.setFormatter(log_format)
+    logger.addHandler(file_handler)
+    return logger

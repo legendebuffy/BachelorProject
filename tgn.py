@@ -14,6 +14,7 @@ import os
 import os.path as osp
 from pathlib import Path
 import numpy as np
+from datetime import datetime
 
 import torch
 from sklearn.metrics import average_precision_score, roc_auc_score
@@ -25,7 +26,7 @@ from torch_geometric.loader import TemporalDataLoader
 from torch_geometric.nn import TransformerConv
 
 # internal imports
-from tgb.utils.utils import get_args, set_random_seed, save_results
+from tgb.utils.utils import get_args, set_random_seed, save_results, _logger
 from tgb.linkproppred.evaluate import Evaluator
 from modules.decoder import LinkPredictor
 from modules.emb_module import GraphAttentionEmbedding
@@ -204,13 +205,30 @@ TOLERANCE = args.tolerance
 PATIENCE = args.patience
 NUM_RUNS = args.num_run
 NUM_NEIGHBORS = 10
+RUN = args.run
 
+logs_save_dir = args.logs_save_dir
+os.makedirs(logs_save_dir, exist_ok=True)
 
 MODEL_NAME = 'TGN'
 # ==========
 
+experiment_log_dir = os.path.join(logs_save_dir, MODEL_NAME, RUN, DATA + f"_seed_{SEED}")
+os.makedirs(experiment_log_dir, exist_ok=True)
+
 # set the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# logging
+log_file_name = os.path.join(experiment_log_dir, f"logs_{datetime.now().strftime('%d_%m_%Y_%H_%M_%S')}.log")
+logger = _logger(log_file_name)
+logger.debug(f"Run description: {RUN}")
+logger.debug(f"We are using {device}")
+logger.debug("=" * 45)
+logger.debug(f'Pre-training Dataset: {DATA} (subset={SUBSET})')
+logger.debug(f'Method:  {MODEL_NAME}')
+logger.debug("=" * 45)
+
 
 # data loading
 dataset = PyGLinkPropPredDataset(name=DATA, root="datasets")
@@ -228,6 +246,8 @@ test_data = data[test_mask]
 train_loader = TemporalDataLoader(train_data, batch_size=BATCH_SIZE)
 val_loader = TemporalDataLoader(val_data, batch_size=BATCH_SIZE)
 test_loader = TemporalDataLoader(test_data, batch_size=BATCH_SIZE)
+
+logger.debug("Data loaded...")
 
 # Ensure to only sample actual destination nodes as negatives.
 min_dst_idx, max_dst_idx = int(data.dst.min()), int(data.dst.max())
@@ -268,9 +288,9 @@ criterion = torch.nn.BCEWithLogitsLoss()
 assoc = torch.empty(data.num_nodes, dtype=torch.long, device=device)
 
 
-print("==========================================================")
-print(f"=================*** {MODEL_NAME}: LinkPropPred: {DATA} ***=============")
-print("==========================================================")
+# print("==========================================================")
+# print(f"=================*** {MODEL_NAME}: LinkPropPred: {DATA} ***=============")
+# print("==========================================================")
 
 evaluator = Evaluator(name=DATA)
 neg_sampler = dataset.negative_sampler
@@ -279,13 +299,13 @@ neg_sampler = dataset.negative_sampler
 results_path = f'{osp.dirname(osp.abspath(__file__))}/saved_results'
 if not osp.exists(results_path):
     os.mkdir(results_path)
-    print('INFO: Create directory {}'.format(results_path))
+    logger.debug('INFO: Create directory {}'.format(results_path))
 Path(results_path).mkdir(parents=True, exist_ok=True)
 results_filename = f'{results_path}/{MODEL_NAME}_{DATA}_results.json'
 
 for run_idx in range(NUM_RUNS):
-    print('-------------------------------------------------------------------------------')
-    print(f"INFO: >>>>> Run: {run_idx} <<<<<")
+    logger.debug('-------------------------------------------------------------------------------')
+    logger.debug(f"INFO: >>>>> Run: {run_idx} <<<<<")
     start_run = timeit.default_timer()
 
     # set the seed for deterministic results...
@@ -308,15 +328,15 @@ for run_idx in range(NUM_RUNS):
         # training
         start_epoch_train = timeit.default_timer()
         loss = train()
-        print(
+        logger.debug(
             f"Epoch: {epoch:02d}, Loss: {loss:.4f}, Training elapsed Time (s): {timeit.default_timer() - start_epoch_train: .4f}"
         )
 
         # validation
         start_val = timeit.default_timer()
         perf_metric_val = test(val_loader, neg_sampler, split_mode="val")
-        print(f"\tValidation {metric}: {perf_metric_val: .4f}")
-        print(f"\tValidation: Elapsed time (s): {timeit.default_timer() - start_val: .4f}")
+        logger.debug(f"\tValidation {metric}: {perf_metric_val: .4f}")
+        logger.debug(f"\tValidation: Elapsed time (s): {timeit.default_timer() - start_val: .4f}")
         val_perf_list.append(perf_metric_val)
 
         # check for early stopping
@@ -324,7 +344,7 @@ for run_idx in range(NUM_RUNS):
             break
 
     train_val_time = timeit.default_timer() - start_train_val
-    print(f"Train & Validation: Elapsed Time (s): {train_val_time: .4f}")
+    logger.debug(f"Train & Validation: Elapsed Time (s): {train_val_time: .4f}")
 
     # ==================================================== Test
     # first, load the best model
@@ -337,10 +357,10 @@ for run_idx in range(NUM_RUNS):
     start_test = timeit.default_timer()
     perf_metric_test = test(test_loader, neg_sampler, split_mode="test")
 
-    print(f"INFO: Test: Evaluation Setting: >>> ONE-VS-MANY <<< ")
-    print(f"\tTest: {metric}: {perf_metric_test: .4f}")
+    logger.debug(f"INFO: Test: Evaluation Setting: >>> ONE-VS-MANY <<< ")
+    logger.debug(f"\tTest: {metric}: {perf_metric_test: .4f}")
     test_time = timeit.default_timer() - start_test
-    print(f"\tTest: Elapsed Time (s): {test_time: .4f}")
+    logger.debug(f"\tTest: Elapsed Time (s): {test_time: .4f}")
 
     save_results({'model': MODEL_NAME,
                   'data': DATA,
@@ -353,8 +373,8 @@ for run_idx in range(NUM_RUNS):
                   }, 
     results_filename)
 
-    print(f"INFO: >>>>> Run: {run_idx}, elapsed time: {timeit.default_timer() - start_run: .4f} <<<<<")
-    print('-------------------------------------------------------------------------------')
+    logger.debug(f"INFO: >>>>> Run: {run_idx}, elapsed time: {timeit.default_timer() - start_run: .4f} <<<<<")
+    logger.debug('-------------------------------------------------------------------------------')
 
-print(f"Overall Elapsed Time (s): {timeit.default_timer() - start_overall: .4f}")
-print("==============================================================")
+logger.debug(f"Overall Elapsed Time (s): {timeit.default_timer() - start_overall: .4f}")
+logger.debug("==============================================================")
