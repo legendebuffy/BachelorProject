@@ -352,6 +352,7 @@ for run_idx in range(NUM_RUNS):
 
         # check for early stopping
         if early_stopper.step_check(perf_metric_val, model):
+            logger.debug(f"INFO: Early Stopping at epoch: {epoch}")
             break
 
     train_val_time = timeit.default_timer() - start_train_val
