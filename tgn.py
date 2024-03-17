@@ -141,7 +141,7 @@ def test(loader, neg_sampler, split_mode, subset):
         )
 
         # logging
-        logger.debug("Testing on batch: {}".format(idx))
+        #logger.debug("Testing on batch: {}".format(idx))
 
         neg_batch_list = neg_sampler.query_batch(pos_src, pos_dst, pos_t, split_mode=split_mode)
 
