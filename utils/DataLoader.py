@@ -5,7 +5,8 @@ import pandas as pd
 
 # TGB imports
 from tgb.linkproppred.dataset import LinkPropPredDataset
-from tgb.nodeproppred.dataset_pyg import PyGNodePropPredDataset
+from tgb.linkproppred.dataset_pyg import PyGLinkPropPredDataset
+# from tgb.nodeproppred.dataset_pyg import PyGNodePropPredDataset
 
 
 class CustomizedDataset(Dataset):

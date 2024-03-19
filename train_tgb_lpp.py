@@ -29,7 +29,7 @@ from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, cr
 from utils.utils import get_neighbor_sampler, NegativeEdgeSampler
 from evaluate_models_utils import evaluate_model_link_prediction
 from utils.metrics import get_link_prediction_metrics
-from utils.DataLoader import get_idx_data_loader, get_link_prediction_data, get_link_pred_data_TRANS_TGB
+from utils.DataLoader import get_idx_data_loader, get_link_prediction_tgb_data, get_link_pred_data_TRANS_TGB
 from utils.EarlyStopping import EarlyStopping
 from utils.load_configs import get_link_prediction_args
 
@@ -76,7 +76,7 @@ def main():
         start_run = timeit.default_timer()
         set_random_seed(seed=args.seed+run)
 
-        args.save_model_name = '{}_{}_seed_{args.seed}_run_{}'.format(args.model_name,args.dataset_name,args.seed,run)
+        args.save_model_name = '{}_{}_seed_{}_run_{}'.format(args.model_name,args.dataset_name,args.seed,run)
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -85,7 +85,7 @@ def main():
         os.makedirs("./logs/{}/{}/{}/".format(args.model_name,args.dataset_name,args.save_model_name)
         , exist_ok=True)
         # create file handler that logs debug and higher level messages
-        log_start_time = datetime.datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H:%M:%S")
+        log_start_time = datetime.datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H_%M_%S")
         fh = logging.FileHandler("./logs/{}/{}/{}/{}.log".format(args.model_name,args.dataset_name,args.save_model_name,str(log_start_time)))
         fh.setLevel(logging.DEBUG)
         # create console handler with a higher log level
@@ -308,48 +308,48 @@ def main():
         early_stopping.load_checkpoint(model)
 
         total_train_val_time = timeit.default_timer() - start_run
-logger.info('Total train & validation elapsed time (s): {:.6f}'.format(total_train_val_time))
-        
-# ========================================
-# ============== Final Test ==============
-# ========================================
-start_test = timeit.default_timer()
-# loading the test negative samples
-dataset.load_test_ns()
-test_metric = eval_LPP_TGB(model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
-                            evaluate_idx_data_loader=test_idx_data_loader, evaluate_data=test_data,  
-                            negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
-                            split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
-test_time = timeit.default_timer() - start_test
-logger.info('Test elapsed time (s): {:.4f}'.format(test_time))
-logger.info('Test: {}: {:.4f}'.format(metric, test_metric))
+    logger.info('Total train & validation elapsed time (s): {:.6f}'.format(total_train_val_time))
+            
+    # ========================================
+    # ============== Final Test ==============
+    # ========================================
+    start_test = timeit.default_timer()
+    # loading the test negative samples
+    dataset.load_test_ns()
+    test_metric = eval_LPP_TGB(model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
+                                evaluate_idx_data_loader=test_idx_data_loader, evaluate_data=test_data,  
+                                negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
+                                split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
+    test_time = timeit.default_timer() - start_test
+    logger.info('Test elapsed time (s): {:.4f}'.format(test_time))
+    logger.info('Test: {}: {:.4f}'.format(metric, test_metric))
 
-# avoid the overlap of logs
-if run < args.num_runs - 1:
-    logger.removeHandler(fh)
-    logger.removeHandler(ch)
+    # avoid the overlap of logs
+    if run < args.num_runs - 1:
+        logger.removeHandler(fh)
+        logger.removeHandler(ch)
 
-# save model result
-result_json = {
-        "data": args.dataset_name,
-        "model": args.model_name,
-        "run": run,
-        "seed": args.seed,
-        "validation {}".format(metric): val_perf_list,
-        "test {}".format(metric): test_metric,
-        "test_time": test_time,
-        "total_train_val_time": total_train_val_time,
-    }
-result_json = json.dumps(result_json, indent=4)
+    # save model result
+    result_json = {
+            "data": args.dataset_name,
+            "model": args.model_name,
+            "run": run,
+            "seed": args.seed,
+            "validation {}".format(metric): val_perf_list,
+            "test {}".format(metric): test_metric,
+            "test_time": test_time,
+            "total_train_val_time": total_train_val_time,
+        }
+    result_json = json.dumps(result_json, indent=4)
 
-save_result_folder = "./saved_results/{}/{}".format(args.model_name, args.dataset_name)
-os.makedirs(save_result_folder, exist_ok=True)
-save_result_path = os.path.join(save_result_folder, "{}.json".format(args.save_model_name))
+    save_result_folder = "./saved_results/{}/{}".format(args.model_name, args.dataset_name)
+    os.makedirs(save_result_folder, exist_ok=True)
+    save_result_path = os.path.join(save_result_folder, "{}.json".format(args.save_model_name))
 
-with open(save_result_path, 'w') as file:
-    file.write(result_json)
+    with open(save_result_path, 'w') as file:
+        file.write(result_json)
 
-logger.info("run {} total elapsed time (s): {:.4f}".format(run, timeit.default_timer() - start_run))
+    logger.info("run {} total elapsed time (s): {:.4f}".format(run, timeit.default_timer() - start_run))
 
 
 if __name__ == "__main__":
