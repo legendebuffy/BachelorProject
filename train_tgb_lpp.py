@@ -100,7 +100,7 @@ def main():
         logger.addHandler(ch)
 
         logger.info("********** Run {} starts. **********".format(run + 1))
-
+        logger.info('We are using device: {}'.format(args.device))
         logger.info('Configuration is {}'.format(args))
 
         # create model
