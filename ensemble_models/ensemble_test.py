@@ -1,19 +1,15 @@
 import math
 import timeit
-
 import os
 import os.path as osp
 from pathlib import Path
 import numpy as np
 from datetime import datetime
-
 import torch
 from sklearn.metrics import average_precision_score, roc_auc_score
 from torch.nn import Linear
-
 from torch_geometric.datasets import JODIEDataset
 from torch_geometric.loader import TemporalDataLoader
-
 from torch_geometric.nn import TransformerConv
 
 # internal imports
@@ -25,10 +21,22 @@ from modules.msg_func import IdentityMessage
 from modules.msg_agg import LastAggregator
 from modules.neighbor_loader import LastNeighborLoader
 from modules.memory_module import TGNMemory
-from modules.early_stopping import  EarlyStopMonitor
+from modules.early_stopping import EarlyStopMonitor
 from tgb.linkproppred.dataset_pyg import PyGLinkPropPredDataset
+from tqdm import tqdm
+import sys
+import argparse
+from modules.edgebank_predictor import EdgeBankPredictor
+from tgb.linkproppred.dataset import LinkPropPredDataset
 
-def train(subset:str='False'): # CHANGED to return logits for ensemble methods
+from edgebank import test as edgebank_test
+
+# ========================================================================================================
+# ========================================================================================================
+# ========================================================================================================
+# Get TGN "logits" for ensemble testing
+
+def train(subset:str='True'): # CHANGED to return logits for ensemble methods
     r"""
     Training procedure for TGN model
     This function uses some objects that are globally defined in the current scrips 
@@ -247,27 +255,159 @@ for run_idx in range(NUM_RUNS):
     for epoch in range(1, NUM_EPOCH + 1):
         # training
         start_epoch_train = timeit.default_timer()
-        loss, pos_logits, neg_logits = train(SUBSET) # RETURN LOGITS FROM TRAIN FUNCTION!!!!!!!!!
+        loss, pos_logits_tgn, neg_logits_tgn = train(SUBSET) # RETURN LOGITS FROM TRAIN FUNCTION!!!!!!!!!
         logger.debug(
             f"Epoch: {epoch:02d}, Loss: {loss:.4f}, Training elapsed Time (s): {timeit.default_timer() - start_epoch_train: .4f}"
         )
 
-        # validation
-        start_val = timeit.default_timer()
-        perf_metric_val = test(val_loader, neg_sampler, split_mode="val", subset=SUBSET)
-        logger.debug(f"\tValidation {metric}: {perf_metric_val: .4f}")
-        logger.debug(f"\tValidation: Elapsed time (s): {timeit.default_timer() - start_val: .4f}")
-        val_perf_list.append(perf_metric_val)
+    #     # validation
+    #     start_val = timeit.default_timer()
+    #     perf_metric_val = test(val_loader, neg_sampler, split_mode="val", subset=SUBSET)
+    #     logger.debug(f"\tValidation {metric}: {perf_metric_val: .4f}")
+    #     logger.debug(f"\tValidation: Elapsed time (s): {timeit.default_timer() - start_val: .4f}")
+    #     val_perf_list.append(perf_metric_val)
 
-        # check for early stopping
-        if early_stopper.step_check(perf_metric_val, model):
-            logger.debug(f"INFO: Early Stopping at epoch: {epoch}")
-            break
+    #     # check for early stopping
+    #     if early_stopper.step_check(perf_metric_val, model):
+    #         logger.debug(f"INFO: Early Stopping at epoch: {epoch}")
+    #         break
 
-    train_val_time = timeit.default_timer() - start_train_val
-    logger.debug(f"Train & Validation: Elapsed Time (s): {train_val_time: .4f}")
+    # train_val_time = timeit.default_timer() - start_train_val
+    # logger.debug(f"Train & Validation: Elapsed Time (s): {train_val_time: .4f}")
 
 
 # ==================================================== TESTING LOGITS
-print("Positive logits:", pos_logits)
-print("Negative logits:", neg_logits)
+print("Positive logits:", pos_logits_tgn)
+print("Negative logits:", neg_logits_tgn)
+
+
+
+# ========================================================================================================
+# ========================================================================================================
+# ========================================================================================================
+# Get Edgebank "logits" for ensemble testing
+def ensemble_test(data, test_mask, neg_sampler, split_mode, subset='False'):
+    r"""
+    Evaluated the dynamic link prediction
+    Evaluation happens as 'one vs. many', meaning that each positive edge is evaluated against many negative edges
+
+    Parameters:
+        data: a dataset object
+        test_mask: required masks to load the test set edges
+        neg_sampler: an object that gives the negative edges corresponding to each positive edge
+        split_mode: specifies whether it is the 'validation' or 'test' set to correctly load the negatives
+    Returns:
+        perf_metric: the result of the performance evaluation
+    """
+    if subset == 'True':
+        print("INFO: Subset is True")
+        num_batches = 2
+    else:
+        print("INFO: Subset is False")
+        num_batches = math.ceil(len(data['sources'][test_mask]) / BATCH_SIZE)
+    perf_list = []
+    for batch_idx in tqdm(range(num_batches)):
+        start_idx = batch_idx * BATCH_SIZE
+        end_idx = min(start_idx + BATCH_SIZE, len(data['sources'][test_mask]))
+        pos_src, pos_dst, pos_t = (
+            data['sources'][test_mask][start_idx: end_idx],
+            data['destinations'][test_mask][start_idx: end_idx],
+            data['timestamps'][test_mask][start_idx: end_idx],
+        )
+        neg_batch_list = neg_sampler.query_batch(pos_src, pos_dst, pos_t, split_mode=split_mode)
+        
+        for idx, neg_batch in enumerate(neg_batch_list):
+            query_src = np.array([int(pos_src[idx]) for _ in range(len(neg_batch) + 1)])
+            query_dst = np.concatenate([np.array([int(pos_dst[idx])]), neg_batch])
+
+            y_pred = edgebank.predict_link(query_src, query_dst)
+            # compute MRR
+            input_dict = {
+                "y_pred_pos": np.array([y_pred[0]]),
+                "y_pred_neg": np.array(y_pred[1:]),
+                "eval_metric": [metric],
+            }
+            perf_list.append(evaluator.eval(input_dict)[metric])
+            
+        # update edgebank memory after each positive batch
+        edgebank.update_memory(pos_src, pos_dst, pos_t)
+
+    perf_metrics = float(np.mean(perf_list))
+
+    return perf_metrics
+
+def get_args_edgebank():
+    parser = argparse.ArgumentParser('*** TGB: EdgeBank ***')
+    parser.add_argument('--subset', type=str, help='Subset of the dataset', default='False', choices=['True', 'False'])
+    parser.add_argument('-d', '--data', type=str, help='Dataset name', default='tgbl-comment', choices=['tgbl-coin', 'tgbl-comment', 'tgbl-flight', 'tgbl-review', 'tgbl-wiki'])
+    parser.add_argument('--run', type=str, help='Run name', default='run1')
+    parser.add_argument('--k_value', type=int, help='k_value for computing ranking metrics', default=10)
+    parser.add_argument('--seed', type=int, help='Random seed', default=1)
+    parser.add_argument('--mem_mode', type=str, help='Memory mode', default='fixed_time_window', choices=['unlimited', 'fixed_time_window'])
+    parser.add_argument('--time_window_ratio', type=float, help='Test window ratio', default=0.15)
+    parser.add_argument('--bs', type=int, help='Batch size', default=200)
+
+    try:
+        args_e = parser.parse_args()
+    except:
+        parser.print_help()
+        sys.exit(0)
+    return args_e, sys.argv 
+
+start_overall = timeit.default_timer()
+
+
+# set hyperparameters
+args_edgebank, _ = get_args_edgebank()
+
+
+MEMORY_MODE = args_edgebank.mem_mode # `unlimited` or `fixed_time_window`
+TIME_WINDOW_RATIO = args_edgebank.time_window_ratio
+run_name = args_edgebank.run
+
+print(f"INFO: Subset: {SUBSET}")
+MODEL_NAME = 'EdgeBank'
+
+# data loading with `numpy`
+dataset = LinkPropPredDataset(name=DATA, root="datasets", preprocess=True)
+data = dataset.full_data  
+metric = dataset.eval_metric
+
+# get masks
+train_mask = dataset.train_mask
+val_mask = dataset.val_mask
+test_mask = dataset.test_mask
+
+#data for memory in edgebank
+hist_src = np.concatenate([data['sources'][train_mask]])
+hist_dst = np.concatenate([data['destinations'][train_mask]])
+hist_ts = np.concatenate([data['timestamps'][train_mask]])
+
+
+# #! check if edges are sorted
+# sorted = np.all(np.diff(data['timestamps']) >= 0)
+# print (" INFO: Edges are sorted: ", sorted)
+
+# Set EdgeBank with memory updater
+edgebank = EdgeBankPredictor(
+        hist_src,
+        hist_dst,
+        hist_ts,
+        memory_mode=MEMORY_MODE,
+        time_window_ratio=TIME_WINDOW_RATIO)
+
+print("==========================================================")
+print(f"============*** {MODEL_NAME}: {MEMORY_MODE}: {DATA} ***==============")
+print("==========================================================")
+
+evaluator = Evaluator(name=DATA)
+neg_sampler = dataset.negative_sampler
+
+# for saving the results...
+results_path = f'{osp.dirname(osp.abspath(__file__))}/saved_results'
+if not osp.exists(results_path):
+    os.mkdir(results_path)
+    print('INFO: Create directory {}'.format(results_path))
+Path(results_path).mkdir(parents=True, exist_ok=True)
+results_filename = f'{results_path}/{MODEL_NAME}_{MEMORY_MODE}_{DATA}_results.json'
+print(edgebank.memory)
