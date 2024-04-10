@@ -29,7 +29,7 @@ import argparse
 from modules.edgebank_predictor import EdgeBankPredictor
 from tgb.linkproppred.dataset import LinkPropPredDataset
 
-from edgebank import test as edgebank_test
+#from edgebank import test as edgebank_test
 
 # ========================================================================================================
 # ========================================================================================================
@@ -277,8 +277,8 @@ for run_idx in range(NUM_RUNS):
 
 
 # ==================================================== TESTING LOGITS
-print("Positive logits:", pos_logits_tgn)
-print("Negative logits:", neg_logits_tgn)
+print("Positive logits:", len(pos_logits_tgn))
+print("Negative logits:", len(neg_logits_tgn))
 
 
 
@@ -334,7 +334,7 @@ def ensemble_test(data, test_mask, neg_sampler, split_mode, subset='False'):
 
     perf_metrics = float(np.mean(perf_list))
 
-    return perf_metrics
+    return perf_metrics, y_pred
 
 def get_args_edgebank():
     parser = argparse.ArgumentParser('*** TGB: EdgeBank ***')
@@ -410,4 +410,14 @@ if not osp.exists(results_path):
     print('INFO: Create directory {}'.format(results_path))
 Path(results_path).mkdir(parents=True, exist_ok=True)
 results_filename = f'{results_path}/{MODEL_NAME}_{MEMORY_MODE}_{DATA}_results.json'
-print(edgebank.memory)
+#print(edgebank.memory)
+
+# ==================================================== Test
+# loading the validation negative samples
+dataset.load_val_ns()
+
+# testing ...
+start_val = timeit.default_timer()
+perf_metric_val, y_pred = ensemble_test(data, val_mask, neg_sampler, split_mode='val', subset ='True')
+end_val = timeit.default_timer()
+print(len(y_pred))
