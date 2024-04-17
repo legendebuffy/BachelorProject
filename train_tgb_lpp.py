@@ -29,7 +29,7 @@ from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, cr
 from utils.utils import get_neighbor_sampler, NegativeEdgeSampler
 from evaluate_models_utils import evaluate_model_link_prediction
 from utils.metrics import get_link_prediction_metrics
-from utils.DataLoader import get_idx_data_loader, get_link_prediction_data, get_link_pred_data_TRANS_TGB
+from utils.DataLoader import get_idx_data_loader, get_link_pred_data_TRANS_TGB #get_link_prediction_data
 from utils.EarlyStopping import EarlyStopping
 from utils.load_configs import get_link_prediction_args
 
@@ -84,7 +84,7 @@ def main():
         logger.setLevel(logging.DEBUG)
         os.makedirs(f"./logs/{args.model_name}/{args.dataset_name}/{args.save_model_name}/", exist_ok=True)
         # create file handler that logs debug and higher level messages
-        log_start_time = datetime.datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H:%M:%S")
+        log_start_time = datetime.datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H_%M_%S")
         fh = logging.FileHandler(f"./logs/{args.model_name}/{args.dataset_name}/{args.save_model_name}/{str(log_start_time)}.log")
         fh.setLevel(logging.DEBUG)
         # create console handler with a higher log level

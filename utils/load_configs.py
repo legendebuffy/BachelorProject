@@ -11,13 +11,13 @@ def get_link_prediction_args(is_evaluation: bool = False):
     """
     # arguments
     parser = argparse.ArgumentParser('DyGLib: Interface for the link prediction task')
-    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia',
+    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='tgbl-wiki',
                         choices=['wikipedia', 'reddit', 'mooc', 'lastfm', 'enron', 'SocialEvo', 
                                  'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts',
                                  'amazonreview', 'stablecoin', 'opensky', 'redditcomments',
                                  'tgbl-wiki', 'tgbl-review'])
     parser.add_argument('--batch_size', type=int, default=200, help='batch size')
-    parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model, note that EdgeBank is only applicable for evaluation',
+    parser.add_argument('--model_name', type=str, default='TGN', help='name of the model, note that EdgeBank is only applicable for evaluation',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])
     # parser.add_argument('--gpu', type=int, default=0, help='ID of gpu to use')
     parser.add_argument('--num_neighbors', type=int, default=20, help='number of neighbors to sample for each node') 
@@ -47,7 +47,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--patience', type=int, default=10, help='patience for early stopping')  # original value = 20
     parser.add_argument('--val_ratio', type=float, default=0.15, help='ratio of validation set')
     parser.add_argument('--test_ratio', type=float, default=0.15, help='ratio of test set')
-    parser.add_argument('--num_runs', type=int, default=5, help='number of runs')
+    parser.add_argument('--num_runs', type=int, default=1, help='number of runs')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
     parser.add_argument('--negative_sample_strategy', type=str, default='random', choices=['random', 'historical', 'inductive'],
                         help='strategy for the negative edge sampling')

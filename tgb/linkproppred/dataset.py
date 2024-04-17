@@ -144,9 +144,9 @@ class LinkPropPredDataset(object):
             print("raw file found, skipping download")
             return
 
-        inp = input(
-            "Will you download the dataset(s) now? (y/N)\n"
-        ).lower()  # ask if the user wants to download the dataset
+        inp = "y" # input(
+        #     "Will you download the dataset(s) now? (y/N)\n"
+        # ).lower()  # ask if the user wants to download the dataset
 
         if inp == "y":
             print(

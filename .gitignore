@@ -111,6 +111,8 @@ ENV/
 .vscode/
 DG_data/*/*
 processed_data/*/*
+tgb/datasets/tgbl_wiki/*
+tgb/datasets/tgbl_review/*
 
 # products
 scripts/*
