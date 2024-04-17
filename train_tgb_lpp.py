@@ -29,7 +29,7 @@ from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, cr
 from utils.utils import get_neighbor_sampler, NegativeEdgeSampler
 from evaluate_models_utils import evaluate_model_link_prediction
 from utils.metrics import get_link_prediction_metrics
-from utils.DataLoader import get_idx_data_loader, get_link_prediction_tgb_data, get_link_pred_data_TRANS_TGB
+from utils.DataLoader import get_idx_data_loader, get_link_prediction_data, get_link_pred_data_TRANS_TGB
 from utils.EarlyStopping import EarlyStopping
 from utils.load_configs import get_link_prediction_args
 
@@ -76,17 +76,16 @@ def main():
         start_run = timeit.default_timer()
         set_random_seed(seed=args.seed+run)
 
-        args.save_model_name = '{}_{}_seed_{}_run_{}'.format(args.model_name,args.dataset_name,args.seed,run)
+        args.save_model_name = f'{args.model_name}_{args.dataset_name}_seed_{args.seed}_run_{run}'
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
-        os.makedirs("./logs/{}/{}/{}/".format(args.model_name,args.dataset_name,args.save_model_name)
-        , exist_ok=True)
+        os.makedirs(f"./logs/{args.model_name}/{args.dataset_name}/{args.save_model_name}/", exist_ok=True)
         # create file handler that logs debug and higher level messages
-        log_start_time = datetime.datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H_%M_%S")
-        fh = logging.FileHandler("./logs/{}/{}/{}/{}.log".format(args.model_name,args.dataset_name,args.save_model_name,str(log_start_time)))
+        log_start_time = datetime.datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H:%M:%S")
+        fh = logging.FileHandler(f"./logs/{args.model_name}/{args.dataset_name}/{args.save_model_name}/{str(log_start_time)}.log")
         fh.setLevel(logging.DEBUG)
         # create console handler with a higher log level
         ch = logging.StreamHandler()
@@ -99,9 +98,9 @@ def main():
         logger.addHandler(fh)
         logger.addHandler(ch)
 
-        logger.info("********** Run {} starts. **********".format(run + 1))
-        logger.info('We are using device: {}'.format(args.device))
-        logger.info('Configuration is {}'.format(args))
+        logger.info(f"********** Run {run + 1} starts. **********")
+
+        logger.info(f'Configuration is {args}')
 
         # create model
         if args.model_name == 'TGAT':
@@ -136,20 +135,21 @@ def main():
                                          num_layers=args.num_layers, num_heads=args.num_heads, dropout=args.dropout,
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
-            raise ValueError("Wrong value for model_name {}!".format(args.model_name))
+            raise ValueError(f"Wrong value for model_name {args.model_name}!")
         link_predictor = MergeLayer(input_dim1=node_raw_features.shape[1], input_dim2=node_raw_features.shape[1],
                                     hidden_dim=node_raw_features.shape[1], output_dim=1)
         model = nn.Sequential(dynamic_backbone, link_predictor)
-        logger.info('model -> {}'.format(model))
-        logger.info('model name: {}, #parameters: {} B, {} KB, {} MB.'.format(args.model_name, get_parameter_sizes(model) * 4, get_parameter_sizes(model) * 4 / 1024, get_parameter_sizes(model) * 4 / 1024 / 1024))
-            
+        logger.info(f'model -> {model}')
+        logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '
+                    f'{get_parameter_sizes(model) * 4 / 1024} KB, {get_parameter_sizes(model) * 4 / 1024 / 1024} MB.')
+
         # define optimizer
         optimizer = create_optimizer(model=model, optimizer_name=args.optimizer, 
                                     learning_rate=args.learning_rate, weight_decay=args.weight_decay)
 
         model = convert_to_gpu(model, device=args.device)
 
-        save_model_folder = "./saved_models/{}/{}/{}/".format(args.model_name,args.dataset_name,args.save_model_name)
+        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
         shutil.rmtree(save_model_folder, ignore_errors=True)
         os.makedirs(save_model_folder, exist_ok=True)
 
@@ -257,7 +257,7 @@ def main():
                                                                           dst_node_ids=batch_neg_dst_node_ids,
                                                                           node_interact_times=batch_node_interact_times)
                 else:
-                    raise ValueError("Wrong value for model_name {}!".format(args.model_name))
+                    raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get positive and negative probabilities, shape (batch_size, )
                 positive_probabilities = model[1](input_1=batch_src_node_embeddings, 
                                                   input_2=batch_dst_node_embeddings).squeeze(dim=-1).sigmoid()
@@ -277,7 +277,7 @@ def main():
                 loss.backward()
                 optimizer.step()
 
-                train_idx_data_loader_tqdm.set_description('Epoch: {}, train for the {}-th batch, train loss: {}'.format(epoch + 1, batch_idx + 1, loss.item()))
+                train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
 
                 if args.model_name in ['JODIE', 'DyRep', 'TGN']:
                     # detach the memories and raw messages of nodes in the memory bank after each batch, so we don't back propagate to the start of time
@@ -292,10 +292,10 @@ def main():
             val_perf_list.append(val_metric)
             
             epoch_time = timeit.default_timer() - start_epoch
-            logger.info('Epoch: {}, learning rate: {}, train loss: {:.4f}, elapsed time (s): {:.4f}'.format(epoch + 1, optimizer.param_groups[0]["lr"], np.mean(train_losses), epoch_time))
+            logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}, elapsed time (s): {epoch_time:.4f}')
             for metric_name in train_metrics[0].keys():
-                logger.info('train {}, {:.4f}'.format(metric_name, np.mean([train_metric[metric_name] for train_metric in train_metrics])))
-            logger.info('Validation: {}: {: .4f}'.format(metric, val_metric))
+                logger.info(f'train {metric_name}, {np.mean([train_metric[metric_name] for train_metric in train_metrics]):.4f}')
+            logger.info(f'Validation: {metric}: {val_metric: .4f}')
 
             # select the best model based on all the validate metrics
             val_metric_indicator = [(metric, val_metric, True)]
@@ -308,49 +308,48 @@ def main():
         early_stopping.load_checkpoint(model)
 
         total_train_val_time = timeit.default_timer() - start_run
-    logger.info('Total train & validation elapsed time (s): {:.6f}'.format(total_train_val_time))
-            
-    # ========================================
-    # ============== Final Test ==============
-    # ========================================
-    start_test = timeit.default_timer()
-    # loading the test negative samples
-    dataset.load_test_ns()
-    test_metric = eval_LPP_TGB(model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
-                                evaluate_idx_data_loader=test_idx_data_loader, evaluate_data=test_data,  
-                                negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
-                                split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
-    test_time = timeit.default_timer() - start_test
-    logger.info('Test elapsed time (s): {:.4f}'.format(test_time))
-    logger.info('Test: {}: {:.4f}'.format(metric, test_metric))
+        logger.info(f'Total train & validation elapsed time (s): {total_train_val_time:.6f}')
+        
+        # ========================================
+        # ============== Final Test ==============
+        # ========================================
+        start_test = timeit.default_timer()
+        # loading the test negative samples
+        dataset.load_test_ns()
+        test_metric = eval_LPP_TGB(model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
+                                   evaluate_idx_data_loader=test_idx_data_loader, evaluate_data=test_data,  
+                                   negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
+                                   split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
+        test_time = timeit.default_timer() - start_test
+        logger.info(f'Test elapsed time (s): {test_time:.4f}')
+        logger.info(f'Test: {metric}: {test_metric: .4f}')
 
-    # avoid the overlap of logs
-    if run < args.num_runs - 1:
-        logger.removeHandler(fh)
-        logger.removeHandler(ch)
+        # avoid the overlap of logs
+        if run < args.num_runs - 1:
+            logger.removeHandler(fh)
+            logger.removeHandler(ch)
 
-    # save model result
-    result_json = {
-            "data": args.dataset_name,
-            "model": args.model_name,
-            "run": run,
-            "seed": args.seed,
-            "validation {}".format(metric): val_perf_list,
-            "test {}".format(metric): test_metric,
-            "test_time": test_time,
-            "total_train_val_time": total_train_val_time,
-        }
-    result_json = json.dumps(result_json, indent=4)
+        # save model result
+        result_json = {
+                "data": args.dataset_name,
+                "model": args.model_name,
+                "run": run,
+                "seed": args.seed,
+                f"validation {metric}": val_perf_list,
+                f"test {metric}": test_metric,
+                "test_time": test_time,
+                "total_train_val_time": total_train_val_time,
+            }
+        result_json = json.dumps(result_json, indent=4)
 
-    save_result_folder = "./saved_results/{}/{}".format(args.model_name, args.dataset_name)
-    os.makedirs(save_result_folder, exist_ok=True)
-    save_result_path = os.path.join(save_result_folder, "{}.json".format(args.save_model_name))
+        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}"
+        os.makedirs(save_result_folder, exist_ok=True)
+        save_result_path = os.path.join(save_result_folder, f"{args.save_model_name}.json")
 
-    with open(save_result_path, 'w') as file:
-        file.write(result_json)
+        with open(save_result_path, 'w') as file:
+            file.write(result_json)
 
-    logger.info("run {} total elapsed time (s): {:.4f}".format(run, timeit.default_timer() - start_run))
-
+        logger.info(f"run {run} total elapsed time (s): {timeit.default_timer() - start_run:.4f}")
 
 if __name__ == "__main__":
 

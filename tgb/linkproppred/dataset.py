@@ -144,7 +144,9 @@ class LinkPropPredDataset(object):
             print("raw file found, skipping download")
             return
 
-        inp = "y" # input("Will you download the dataset(s) now? (y/N)\n").lower()  # ask if the user wants to download the dataset
+        inp = input(
+            "Will you download the dataset(s) now? (y/N)\n"
+        ).lower()  # ask if the user wants to download the dataset
 
         if inp == "y":
             print(
@@ -236,9 +238,9 @@ class LinkPropPredDataset(object):
         generates the edge data and different train, val, test splits
         """
         # TODO for link prediction, y =1 because these are all true edges, edge feat = weight + edge feat
-        
+
         # check if path to file is valid
-        df, edge_feat, node_feat = self.generate_processed_files()        
+        df, edge_feat, node_feat = self.generate_processed_files()
         sources = np.array(df["u"])
         destinations = np.array(df["i"])
         timestamps = np.array(df["ts"])
