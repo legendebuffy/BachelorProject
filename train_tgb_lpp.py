@@ -285,7 +285,7 @@ def main():
 
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric = eval_LPP_TGB(model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
+            val_metric,_,_ = eval_LPP_TGB(model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                       split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
