@@ -113,6 +113,9 @@ DG_data/*/*
 processed_data/*/*
 tgb/datasets/tgbl_wiki/*
 tgb/datasets/tgbl_review/*
+tgb/datasets/tgbl_coin/*
+tgb/datasets/tgbl_comment/*
+tgb/datasets/tgbl_flight/*
 
 # products
 scripts/*

@@ -7,12 +7,14 @@ import time
 import csv
 import datetime
 from datetime import date
+from collections import Counter
+import random
 
 """
 functions for wikipedia dataset
 ---------------------------------------
 """
-
+DATASET_LENGTH = 100000
 
 def load_edgelist_wiki(fname: str) -> pd.DataFrame:
     """
@@ -26,6 +28,9 @@ def load_edgelist_wiki(fname: str) -> pd.DataFrame:
         df: a pandas dataframe containing the edgelist data
     """
     df = pd.read_csv(fname, skiprows=1, header=None)
+    # Only keep the first 100,000 lines
+    df = df.iloc[:DATASET_LENGTH]
+    print("DTU subsampling")
     src = df.iloc[:, 0].values
     dst = df.iloc[:, 1].values
     dst += int(src.max()) + 1
@@ -437,66 +442,66 @@ def csv_to_pd_data_rc(
         fname: the path to the raw data
     """
     feat_size = 2  # 1 for subreddit, 1 for num words
-    num_lines = sum(1 for line in open(fname)) - 1
-    #print("number of lines counted", num_lines)
-    print("there are ", num_lines, " lines in the raw data")
-    u_list = np.zeros(num_lines)
-    i_list = np.zeros(num_lines)
-    ts_list = np.zeros(num_lines)
-    label_list = np.zeros(num_lines)
-    feat_l = np.zeros((num_lines, feat_size))
-    idx_list = np.zeros(num_lines)
-    w_list = np.zeros(num_lines)
+    max_lines = 100000  # Limit the number of processed lines
+
+    # Initialize arrays with size based on max_lines instead of the total number of lines in the file
+    print("Preparing to process up to", max_lines, "lines.")
+    u_list = np.zeros(max_lines)
+    i_list = np.zeros(max_lines)
+    ts_list = np.zeros(max_lines)
+    label_list = np.zeros(max_lines)
+    feat_l = np.zeros((max_lines, feat_size))
+    idx_list = np.zeros(max_lines)
+    w_list = np.zeros(max_lines)
     node_ids = {}
 
     unique_id = 0
-    max_words = 5000  # counted form statistics
+    max_words = 5000  # counted from statistics
 
     with open(fname, "r") as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=",")
         idx = 0
-        # ['ts', 'src', 'dst', 'subreddit', 'num_words', 'score']
+        next(csv_reader)  # Skip the header line, improved from checking in the loop
         for row in tqdm(csv_reader):
-            if idx == 0:
-                idx += 1
-                continue
-            else:
-                ts = int(row[0])
-                src = row[1]
-                dst = row[2]
-                num_words = int(row[3]) / max_words  # int number, normalize to [0,1]
-                score = int(row[4])  # int number
+            if idx >= max_lines:
+                break  # Stop processing if max_lines limit is reached
 
-                # reindexing node and subreddits
-                if src not in node_ids:
-                    node_ids[src] = unique_id
-                    unique_id += 1
-                if dst not in node_ids:
-                    node_ids[dst] = unique_id
-                    unique_id += 1
-                w = float(score)
-                u = node_ids[src]
-                i = node_ids[dst]
-                u_list[idx - 1] = u
-                i_list[idx - 1] = i
-                ts_list[idx - 1] = ts
-                idx_list[idx - 1] = idx
-                w_list[idx - 1] = w
-                feat_l[idx - 1] = np.array([num_words])
-                idx += 1
+            ts = int(row[0])
+            src = row[1]
+            dst = row[2]
+            num_words = int(row[3]) / max_words  # Normalize to [0,1]
+            score = int(row[4])  # Score as int
+
+            # Reindexing node and subreddits
+            if src not in node_ids:
+                node_ids[src] = unique_id
+                unique_id += 1
+            if dst not in node_ids:
+                node_ids[dst] = unique_id
+                unique_id += 1
+
+            w = float(score)
+            u = node_ids[src]
+            i = node_ids[dst]
+            u_list[idx] = u
+            i_list[idx] = i
+            ts_list[idx] = ts
+            idx_list[idx] = idx + 1  # Keeping 1-based index for compatibility
+            w_list[idx] = w
+            feat_l[idx] = np.array([num_words])  # Ensure it's compatible with the expected shape
+            idx += 1
+
     print("there are ", len(node_ids), " unique nodes")
 
     return (
-        pd.DataFrame(
-            {
-                "u": u_list,
-                "i": i_list,
-                "ts": ts_list,
-                "label": label_list,
-                "idx": idx_list,
-                "w": w_list,
-            }
-        ),
+        pd.DataFrame({
+            "u": u_list,
+            "i": i_list,
+            "ts": ts_list,
+            "label": label_list,
+            "idx": idx_list,
+            "w": w_list,
+        }),
         feat_l,
         node_ids,
     )
@@ -523,32 +528,126 @@ def csv_to_pd_data_sc(
         node_ids: a dictionary mapping node id to integer
     """
     feat_size = 1
-    num_lines = sum(1 for line in open(fname)) - 1
-    print("number of lines counted", num_lines)
-    u_list = np.zeros(num_lines)
-    i_list = np.zeros(num_lines)
-    ts_list = np.zeros(num_lines)
-    label_list = np.zeros(num_lines)
-    feat_l = np.zeros((num_lines, feat_size))
-    idx_list = np.zeros(num_lines)
-    w_list = np.zeros(num_lines)
-    print("numpy allocated")
+    max_lines = 100000  # Only process the first 100,000 lines
+
+    # Initialize numpy arrays with a size of max_lines
+    u_list = np.zeros(max_lines)
+    i_list = np.zeros(max_lines)
+    ts_list = np.zeros(max_lines)
+    label_list = np.zeros(max_lines)
+    feat_l = np.zeros((max_lines, feat_size))
+    idx_list = np.zeros(max_lines)
+    w_list = np.zeros(max_lines)
+    print("numpy allocated for 100,000 lines")
+
     node_ids = {}
     unique_id = 0
 
     with open(fname, "r") as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=",")
         idx = 0
-        # time,src,dst,weight
-        # 1648811421,0x27cbb0e6885ccb1db2dab7c2314131c94795fbef,0x8426a27add8dca73548f012d92c7f8f4bbd42a3e,800.0
+        next(csv_reader)  # Skip header line
         for row in tqdm(csv_reader):
-            if idx == 0:
-                idx += 1
-                continue
-            else:
+            if idx >= max_lines:
+                break  # Stop processing after max_lines
+
+            ts = int(row[0])
+            src = row[1]
+            dst = row[2]
+
+            if src not in node_ids:
+                node_ids[src] = unique_id
+                unique_id += 1
+            if dst not in node_ids:
+                node_ids[dst] = unique_id
+                unique_id += 1
+
+            w = float(row[3])
+            if w == 0:
+                w = 1
+
+            u = node_ids[src]
+            i = node_ids[dst]
+            u_list[idx] = u
+            i_list[idx] = i
+            ts_list[idx] = ts
+            idx_list[idx] = idx + 1  # Keep 1-based index for compatibility
+            w_list[idx] = w
+            feat_l[idx] = np.zeros(feat_size)
+            idx += 1
+
+    # Normalize by log 2 for stablecoin
+    w_list = np.log2(w_list + 1)  # Offset by 1 to handle log(1) case for w=0 originally
+
+    return (
+        pd.DataFrame({
+            "u": u_list,
+            "i": i_list,
+            "ts": ts_list,
+            "label": label_list,
+            "idx": idx_list,
+            "w": w_list,
+        }),
+        feat_l,
+        node_ids,
+    )
+
+"""
+functions for review
+-------------------------------------------
+"""
+
+def csv_to_pd_data_rw(fname: str) -> pd.DataFrame:
+    num_edges = 4873540
+    num_nodes = 352637
+    max_edges = DATASET_LENGTH
+    max_nodes = 4000
+    node_frequency = Counter()
+    feat_size = 1
+
+    # First pass to count node frequencies
+    with open(fname, "r") as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=",")
+        next(csv_reader)  # Skip header
+        for row in csv_reader:
+            src, dst = row[1], row[2]
+            node_frequency[src] += 1
+            node_frequency[dst] += 1
+
+    # Determine the most frequent nodes to include
+    bot_nodes = set()
+    nodes_removed = 0
+    # start from the least frequent nodes
+    for node, count in reversed(node_frequency.most_common()):
+        if num_nodes - nodes_removed <= max_nodes:
+            break
+        bot_nodes.add(node)
+        nodes_removed += 1
+
+    # Reinitialize necessary data structures
+    u_list = []
+    i_list = []
+    ts_list = []
+    label_list = []
+    feat_l = []  # Assuming feat_size is 1
+    idx_list = []
+    w_list = []
+
+    node_ids = {}
+    unique_id = 0
+    idx = 0
+
+    # Second pass to construct the dataset with the filtered nodes
+    with open(fname, "r") as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=",")
+        next(csv_reader)  # Skip header
+        for row in tqdm(csv_reader):
+            # if idx >= num_lines:
+            #     break
+            src, dst = row[1], row[2]
+            if src not in bot_nodes and dst not in bot_nodes:
                 ts = int(row[0])
-                src = row[1]
-                dst = row[2]
+                w = float(row[3]) if float(row[3]) != 0 else 1
 
                 if src not in node_ids:
                     node_ids[src] = unique_id
@@ -557,35 +656,29 @@ def csv_to_pd_data_sc(
                     node_ids[dst] = unique_id
                     unique_id += 1
 
-                w = float(row[3])
-                if w == 0:
-                    w = 1
-
                 u = node_ids[src]
                 i = node_ids[dst]
-                u_list[idx - 1] = u
-                i_list[idx - 1] = i
-                ts_list[idx - 1] = ts
-                idx_list[idx - 1] = idx
-                w_list[idx - 1] = w
-                feat_l[idx - 1] = np.zeros(feat_size)
+                u_list.append(u)
+                i_list.append(i)
+                ts_list.append(ts)
+                idx_list.append(idx + 1)  # Keeping 1-based index for compatibility
+                w_list.append(w)
+                label_list.append(0)
+                feat_l.append(np.zeros(feat_size))
                 idx += 1
 
-    #! normalize by log 2 for stablecoin
-    w_list = np.log2(w_list)
+    w_list = np.log2(np.array(w_list) + 1)  # Offset by 1 to handle log(1) case for w=0 originally
 
     return (
-        pd.DataFrame(
-            {
-                "u": u_list,
-                "i": i_list,
-                "ts": ts_list,
-                "label": label_list,
-                "idx": idx_list,
-                "w": w_list,
-            }
-        ),
-        feat_l,
+        pd.DataFrame({
+            "u": np.array(u_list),
+            "i": np.array(i_list),
+            "ts": np.array(ts_list),
+            "label": np.array(label_list),
+            "idx": np.array(idx_list),
+            "w": np.array(w_list),
+        }),
+        np.array(feat_l),
         node_ids,
     )
 
@@ -631,100 +724,111 @@ def csv_to_pd_data(
         fname: the path to the raw data
     """
     feat_size = 16
-    num_lines = sum(1 for line in open(fname)) - 1
-    print("number of lines counted", num_lines)
-    u_list = np.zeros(num_lines)
-    i_list = np.zeros(num_lines)
-    ts_list = np.zeros(num_lines)
-    label_list = np.zeros(num_lines)
-    feat_l = np.zeros((num_lines, feat_size))
-    idx_list = np.zeros(num_lines)
-    w_list = np.zeros(num_lines)
-    print("numpy allocated")
+    max_edges = 100000  # Number of edges to randomly sample
+
+    # Temporary storage for reading all edges
+    all_edges = []
+    node_ids = {}
+    unique_id = 0
+
+    df = pd.read_csv(fname, skiprows=1, header=None)
+
+    # Randomly sample edges
+    sampled_edges = df.sample(n=max_edges, random_state=1)
+    
+    # Sort according to timestamp
+    sampled_edges = sampled_edges.sort_values(by=0)
+
+    # Reset index
+    sampled_edges = sampled_edges.reset_index(drop=True)
+
+    # Prepare lists for data
+    u_list = []
+    i_list = []
+    ts_list = []
+    label_list = []
+    feat_l = []
+    idx_list = []
+    w_list = []
     node_ids = {}
     unique_id = 0
     ts_format = None
 
-    with open(fname, "r") as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=",")
-        idx = 0
-        #'day','src','dst','callsign','typecode'
-        for row in tqdm(csv_reader):
-            if idx == 0:
-                idx += 1
-                continue
+    # Process the sampled DataFrame
+    for idx, row in tqdm(sampled_edges.iterrows(), total=sampled_edges.shape[0]):
+        src, dst = row[1], row[2]
+
+
+        ts = row[0]
+        if ts_format is None:
+            if (str(ts).isdigit()):
+                ts_format = True
             else:
-                ts = row[0]
-                if ts_format is None:
-                    if (ts.isdigit()):
-                        ts_format = True
-                    else:
-                        ts_format = False
-                
-                if ts_format:
-                    ts = float(int(ts)) #unix timestamp already
-                else:
-                    #convert to unix timestamp
-                    TIME_FORMAT = "%Y-%m-%d"
-                    date_cur = datetime.datetime.strptime(ts, TIME_FORMAT)
-                    ts = float(date_cur.timestamp())
-                    # TIME_FORMAT = "%Y-%m-%d" # 2019-01-01
-                    # date_cur  = date.fromisoformat(ts)
-                    # dt = datetime.datetime.combine(date_cur, datetime.datetime.min.time())
-                    # dt = dt.replace(tzinfo=datetime.timezone.edt)
-                    # ts = float(dt.timestamp())
+                ts_format = False
+        
+        if ts_format:
+            ts = float(int(ts)) #unix timestamp already
+        else:
+            #convert to unix timestamp
+            TIME_FORMAT = "%Y-%m-%d"
+            date_cur = datetime.datetime.strptime(ts, TIME_FORMAT)
+            ts = float(date_cur.timestamp())
+            # TIME_FORMAT = "%Y-%m-%d" # 2019-01-01
+            # date_cur  = date.fromisoformat(ts)
+            # dt = datetime.datetime.combine(date_cur, datetime.datetime.min.time())
+            # dt = dt.replace(tzinfo=datetime.timezone.edt)
+            # ts = float(dt.timestamp())
 
 
-                src = row[1]
-                dst = row[2]
+        # 'callsign' has max size 8, can be 4, 5, 6, or 7
+        # 'typecode' has max size 8
+        # use ! as padding
 
-                # 'callsign' has max size 8, can be 4, 5, 6, or 7
-                # 'typecode' has max size 8
-                # use ! as padding
+        # pad row[3] to size 7
+        if len(row[3]) == 0:
+            row[3] = "!!!!!!!!"
+        while len(row[3]) < 8:
+            row[3] += "!"
 
-                # pad row[3] to size 7
-                if len(row[3]) == 0:
-                    row[3] = "!!!!!!!!"
-                while len(row[3]) < 8:
-                    row[3] += "!"
+        # pad row[4] to size 4
+        try: 
+            np.isnan(row[4])
+            row[4] = "!!!!!!!!"
+        except: pass
+        while len(row[4]) < 8:
+            row[4] += "!"
+        if len(row[4]) > 8:
+            row[4] = "!!!!!!!!"
 
-                # pad row[4] to size 4
-                if len(row[4]) == 0:
-                    row[4] = "!!!!!!!!"
-                while len(row[4]) < 8:
-                    row[4] += "!"
-                if len(row[4]) > 8:
-                    row[4] = "!!!!!!!!"
+        feat_str = row[3] + row[4]
 
-                feat_str = row[3] + row[4]
+        if src not in node_ids:
+            node_ids[src] = unique_id
+            unique_id += 1
+        if dst not in node_ids:
+            node_ids[dst] = unique_id
+            unique_id += 1
 
-                if src not in node_ids:
-                    node_ids[src] = unique_id
-                    unique_id += 1
-                if dst not in node_ids:
-                    node_ids[dst] = unique_id
-                    unique_id += 1
-                u = node_ids[src]
-                i = node_ids[dst]
-                u_list[idx - 1] = u
-                i_list[idx - 1] = i
-                ts_list[idx - 1] = ts
-                idx_list[idx - 1] = idx
-                w_list[idx - 1] = float(1)
-                feat_l[idx - 1] = convert_str2int(feat_str)
-                idx += 1
+        u = node_ids[src]
+        i = node_ids[dst]
+        u_list.append(u)
+        i_list.append(i)
+        ts_list.append(ts)
+        idx_list.append(idx + 1)  # Keeping 1-based index
+        w_list.append(float(1))  # Assuming all weights are 1
+        label_list.append(0)  # Assuming label needed and is 0
+        feat_l.append(convert_str2int(feat_str))
+            
     return (
-        pd.DataFrame(
-            {
-                "u": u_list,
-                "i": i_list,
-                "ts": ts_list,
-                "label": label_list,
-                "idx": idx_list,
-                "w": w_list,
-            }
-        ),
-        feat_l,
+        pd.DataFrame({
+            "u": np.array(u_list),
+            "i": np.array(i_list),
+            "ts": np.array(ts_list),
+            "label": np.array(label_list),
+            "idx": np.array(idx_list),
+            "w": np.array(w_list),
+        }),
+        np.array(feat_l),
         node_ids,
     )
 

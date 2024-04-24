@@ -11,7 +11,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     """
     # arguments
     parser = argparse.ArgumentParser('DyGLib: Interface for the link prediction task')
-    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='tgbl-wiki',
+    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='tgbl-flight',
                         choices=['wikipedia', 'reddit', 'mooc', 'lastfm', 'enron', 'SocialEvo', 
                                  'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts',
                                  'amazonreview', 'stablecoin', 'opensky', 'redditcomments',
