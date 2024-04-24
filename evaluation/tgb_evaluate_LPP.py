@@ -136,10 +136,18 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
 
                 
                 # get positive and negative probabilities
-                positive_probabilities = model[1](input_1=batch_pos_src_node_embeddings, 
-                                                  input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1).sigmoid()
-                negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, 
-                                                  input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1).sigmoid()
+                pos_logits = model[1](input_1=batch_pos_src_node_embeddings, 
+                                                  input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1)
+                neg_logits = model[1](input_1=batch_neg_src_node_embeddings, 
+                                                  input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
+                
+                positive_probabilities = pos_logits.sigmoid()
+                negative_probabilities = neg_logits.sigmoid()
+
+                # positive_probabilities = model[1](input_1=batch_pos_src_node_embeddings, 
+                #                                   input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1).sigmoid()
+                # negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, 
+                #                                   input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1).sigmoid()
 
                 # compute MRR
                 input_dict = {
@@ -151,6 +159,6 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
             
     avg_perf_metric = float(np.mean(np.array(perf_list)))
 
-    return avg_perf_metric
+    return avg_perf_metric, pos_logits, neg_logits
 
 

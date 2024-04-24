@@ -59,6 +59,9 @@ def get_link_prediction_args(is_evaluation: bool = False):
                         help='Training time granularity.')
     parser.add_argument('--eval_time_gran', type=str, default='ct', choices=['ct', 'dt'],
                         help='Evaluation time granularity.')
+    
+    # To save logits for simple ensemble
+    parser.add_argument('--logits', type=str, default="False", help='to save logits')
 
     try:
         args = parser.parse_args()

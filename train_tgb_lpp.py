@@ -316,10 +316,17 @@ def main():
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric = eval_LPP_TGB(model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
-                                   evaluate_idx_data_loader=test_idx_data_loader, evaluate_data=test_data,  
-                                   negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
+        test_metric, pos_test_logits, neg_test_logits = eval_LPP_TGB(model_name=args.model_name, model=model, 
+                                    neighbor_sampler=full_neighbor_sampler,evaluate_idx_data_loader=test_idx_data_loader, 
+                                    evaluate_data=test_data, negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                    split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
+        # To save logits for simple ensemble
+        if args.logits == "True":
+            logits = torch.cat([pos_test_logits, neg_test_logits], dim=0)
+            # create dir if not exists
+            os.makedirs(f"./saved_logits/{args.model_name}/{args.dataset_name}/", exist_ok=True)
+            torch.save(logits, f"./saved_logits/{args.model_name}/{args.dataset_name}/{args.model_name}_logits.pth")
+
         test_time = timeit.default_timer() - start_test
         logger.info(f'Test elapsed time (s): {test_time:.4f}')
         logger.info(f'Test: {metric}: {test_metric: .4f}')
