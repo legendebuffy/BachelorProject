@@ -260,6 +260,8 @@ def main():
             train_losses, train_metrics = [], []
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
+                if args.subset == 'True' and batch_idx > 1:
+                    break
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], \
                     train_data.node_interact_times[train_data_indices], train_data.edge_ids[train_data_indices]
@@ -390,10 +392,11 @@ def main():
 
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric = eval_LPP_TGB(model_name=args.model_name, model=ensemble, neighbor_sampler=full_neighbor_sampler, 
+            val_metric = ensemble.eval_TGB(neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
-                                      split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
+                                      split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
+                                      subset=args.subset)
             val_perf_list.append(val_metric)
             
             epoch_time = timeit.default_timer() - start_epoch
@@ -421,10 +424,11 @@ def main():
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric = eval_LPP_TGB(model_name=args.model_name, model=ensemble, neighbor_sampler=full_neighbor_sampler, 
+        test_metric = ensemble.eval_TGB(neighbor_sampler=full_neighbor_sampler, 
                                    evaluate_idx_data_loader=test_idx_data_loader, evaluate_data=test_data,  
                                    negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
-                                   split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
+                                   split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
+                                   subset=args.subset)
         test_time = timeit.default_timer() - start_test
         logger.info(f'Test elapsed time (s): {test_time:.4f}')
         logger.info(f'Test: {metric}: {test_metric: .4f}')
