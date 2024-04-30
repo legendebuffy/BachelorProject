@@ -143,7 +143,7 @@ class Ensemble(nn.Module):
         if model_name in ['TGAT', 'CAWN', 'TCL']:
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
-            node_interact_times = kwargs["batch_node_interact_times"] if positive else kwargs["batch_neg_node_interact_times"]
+            node_interact_times = kwargs["batch_node_interact_times"]
             num_neighbors = kwargs["num_neighbors"]
             return model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
                                                                     dst_node_ids=dst_node_ids,
@@ -152,7 +152,7 @@ class Ensemble(nn.Module):
         elif model_name in ['JODIE', 'DyRep', 'TGN']:
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
-            node_interact_times = kwargs["batch_node_interact_times"] if positive else kwargs["batch_neg_node_interact_times"]
+            node_interact_times = kwargs["batch_node_interact_times"]
             edge_ids = None if positive else kwargs["batch_edge_ids"]
             edges_are_positive = not positive
             num_neighbors = kwargs["num_neighbors"]
@@ -165,7 +165,7 @@ class Ensemble(nn.Module):
         elif model_name in ['GraphMixer']:
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
-            node_interact_times = kwargs["batch_node_interact_times"] if positive else kwargs["batch_neg_node_interact_times"]
+            node_interact_times = kwargs["batch_node_interact_times"]
             num_neighbors = kwargs["num_neighbors"]
             time_gap = kwargs["time_gap"]
             return model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
@@ -176,7 +176,7 @@ class Ensemble(nn.Module):
         elif model_name in ['DyGformer']:
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
-            node_interact_times = kwargs["batch_node_interact_times"] if positive else kwargs["batch_neg_node_interact_times"]
+            node_interact_times = kwargs["batch_node_interact_times"]
             return model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
                                                                     dst_node_ids=dst_node_ids,
                                                                     node_interact_times=node_interact_times)
@@ -203,17 +203,17 @@ class Ensemble(nn.Module):
             logits.append(logit)
 
             if len(labels) == 0:
-                labels.append(torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=0))
+                labels = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=0)
             
             losses.append(loss_func(logit, labels))
 
-        #combined_logits = torch.cat(logits, dim=-1)
-        output = self.combiner(torch.tensor(logits))
-        return output, losses, labels
+        combined_logits = torch.stack(logits, dim=-1)
+        output = self.combiner(combined_logits).squeeze(1)
+        return output, torch.tensor(losses), labels
 
     def train_step(self, loss_func, optimizer, train_neighbor_sampler, **kwargs):
         optimizer.zero_grad()
-        output, losses, labels = self.forward(train_neighbor_sampler, **kwargs)
+        output, losses, labels = self.forward(loss_func, train_neighbor_sampler, **kwargs)
 
         weights = torch.ones(len(losses))/len(losses)
         weighted_losses = sum(weights*losses)
@@ -222,7 +222,22 @@ class Ensemble(nn.Module):
 
         loss.backward()
         optimizer.step()
+
+        for model, model_name in zip(self.base_models, self.model_names):
+            if model_name in ['JODIE', 'DyRep', 'TGN']:
+                model[0].memory_bank.detach_memory_bank()
+
         return loss.item()
+
+
+class LogisticRegressionModel(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(LogisticRegressionModel, self).__init__()
+        self.linear = nn.Linear(input_dim, output_dim)
+
+    def forward(self, x):
+        outputs = torch.sigmoid(self.linear(x))
+        return outputs
 
 # if __name__ == '__main__':
 #     # Assuming you have your models, combiner, and model names defined
