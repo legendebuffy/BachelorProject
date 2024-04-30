@@ -91,6 +91,8 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
     :return:
     """
     perf_list = []
+    pos_logit_list = []
+    neg_logit_list = []
 
     if model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
         # evaluation phase use all the graph information
@@ -140,7 +142,9 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
                                                   input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1)
                 neg_logits = model[1](input_1=batch_neg_src_node_embeddings, 
                                                   input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
-                
+                pos_logit_list.append(pos_logits)
+                neg_logit_list.append(neg_logits)
+
                 positive_probabilities = pos_logits.sigmoid()
                 negative_probabilities = neg_logits.sigmoid()
 
@@ -159,6 +163,6 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
             
     avg_perf_metric = float(np.mean(np.array(perf_list)))
 
-    return avg_perf_metric, pos_logits, neg_logits
+    return avg_perf_metric, pos_logit_list, neg_logit_list
 
 
