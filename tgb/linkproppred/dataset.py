@@ -20,6 +20,7 @@ from tgb.utils.pre_process import (
     process_node_feat,
     csv_to_pd_data_sc,
     csv_to_pd_data_rc,
+    csv_to_pd_data_rw,
     load_edgelist_wiki,
 )
 from tgb.utils.utils import save_pkl, load_pkl
@@ -220,7 +221,7 @@ class LinkPropPredDataset(object):
             elif self.name == "tgbl-comment":
                 df, edge_feat, node_ids = csv_to_pd_data_rc(self.meta_dict["fname"])
             elif self.name == "tgbl-review":
-                df, edge_feat, node_ids = csv_to_pd_data_sc(self.meta_dict["fname"])
+                df, edge_feat, node_ids = csv_to_pd_data_rw(self.meta_dict["fname"])
             elif self.name == "tgbl-wiki":
                 df, edge_feat, node_ids = load_edgelist_wiki(self.meta_dict["fname"])
 
