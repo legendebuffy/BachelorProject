@@ -15,7 +15,7 @@ class Ensemble(nn.Module):
         if model_name in ['TGAT', 'CAWN', 'TCL']:
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
-            node_interact_times = kwargs["batch_node_interact_times"]
+            node_interact_times = kwargs["batch_node_interact_times"] if positive else kwargs["batch_neg_node_interact_times"]
             num_neighbors = kwargs["num_neighbors"]
             return model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
                                                                     dst_node_ids=dst_node_ids,
@@ -24,7 +24,7 @@ class Ensemble(nn.Module):
         elif model_name in ['JODIE', 'DyRep', 'TGN']:
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
-            node_interact_times = kwargs["batch_node_interact_times"]
+            node_interact_times = kwargs["batch_node_interact_times"] if positive else kwargs["batch_neg_node_interact_times"]
             edge_ids = None if not positive else kwargs["batch_edge_ids"]
             edges_are_positive = positive
             num_neighbors = kwargs["num_neighbors"]
@@ -37,7 +37,7 @@ class Ensemble(nn.Module):
         elif model_name in ['GraphMixer']:
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
-            node_interact_times = kwargs["batch_node_interact_times"]
+            node_interact_times = kwargs["batch_node_interact_times"] if positive else kwargs["batch_neg_node_interact_times"]
             num_neighbors = kwargs["num_neighbors"]
             time_gap = kwargs["time_gap"]
             return model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
@@ -48,7 +48,7 @@ class Ensemble(nn.Module):
         elif model_name in ['DyGFormer']:
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
-            node_interact_times = kwargs["batch_node_interact_times"]
+            node_interact_times = kwargs["batch_node_interact_times"] if positive else kwargs["batch_neg_node_interact_times"]
             return model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
                                                                     dst_node_ids=dst_node_ids,
                                                                     node_interact_times=node_interact_times)
@@ -162,13 +162,13 @@ class Ensemble(nn.Module):
         
         perf_list = []
 
-        logits = []
-        labels = []
+        
+        
 
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
-            # if subset == 'True' and batch_idx > 1:
-            #     break
+            if subset == 'True' and batch_idx > 3:
+                break
             
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                 evaluate_data.src_node_ids[evaluate_data_indices],  evaluate_data.dst_node_ids[evaluate_data_indices], \
@@ -182,8 +182,11 @@ class Ensemble(nn.Module):
 
             for idx, neg_batch in enumerate(neg_batch_list):
 
-                # if subset == 'True' and idx > 1:
-                #     break
+                if subset == 'True' and idx > 3:
+                    break
+
+                logits = []
+                labels = []
                         
                 for model, model_name in zip(self.base_models, self.model_names):
             
@@ -198,34 +201,48 @@ class Ensemble(nn.Module):
                         batch_neg_dst_node_ids = np.array(neg_batch)
                         batch_neg_node_interact_times = np.array([batch_node_interact_times[idx] for _ in range(len(neg_batch))])
 
-                        kwargs = {
-                            "batch_src_node_ids": batch_src_node_ids,
-                            "batch_dst_node_ids": batch_dst_node_ids,
-                            "batch_node_interact_times": batch_node_interact_times,
-                            "batch_edge_ids": batch_edge_ids,
-                            "batch_neg_src_node_ids": batch_neg_src_node_ids,
-                            "batch_neg_dst_node_ids": batch_neg_dst_node_ids,
-                            "batch_neg_node_interact_times": batch_neg_node_interact_times,
-                            "num_neighbors": num_neighbors,
-                            "time_gap": time_gap
-                        }
+                        if False:
+                            kwargs = {
+                                "batch_src_node_ids": batch_src_node_ids,
+                                "batch_dst_node_ids": batch_dst_node_ids,
+                                "batch_node_interact_times": batch_node_interact_times,
+                                "batch_edge_ids": batch_edge_ids,
+                                "batch_neg_src_node_ids": batch_neg_src_node_ids,
+                                "batch_neg_dst_node_ids": batch_neg_dst_node_ids,
+                                "batch_neg_node_interact_times": batch_neg_node_interact_times,
+                                "num_neighbors": num_neighbors,
+                                "time_gap": time_gap
+                            }
 
-                        # batch_src_node_embeddings, batch_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=True)
-                        # batch_neg_src_node_embeddings, batch_neg_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=False)
-
-                        # negative edges
-                        batch_neg_src_node_embeddings, batch_neg_dst_node_embeddings = \
-                            self.query_pred_edge_batch(model_name=model_name, model=model, 
-                                src_node_ids=batch_neg_src_node_ids, dst_node_ids=batch_neg_dst_node_ids, 
-                                node_interact_times=batch_neg_node_interact_times, edge_ids=None,
-                                edges_are_positive=False, num_neighbors=num_neighbors, time_gap=time_gap)
+                            # negative edges
+                            batch_neg_src_node_embeddings, batch_neg_dst_node_embeddings = \
+                                self.query_pred_edge_batch(model_name=model_name, model=model, 
+                                    src_node_ids=batch_neg_src_node_ids, dst_node_ids=batch_neg_dst_node_ids, 
+                                    node_interact_times=batch_neg_node_interact_times, edge_ids=None,
+                                    edges_are_positive=False, num_neighbors=num_neighbors, time_gap=time_gap)
+                            
+                            # one positive edge
+                            batch_pos_src_node_embeddings, batch_pos_dst_node_embeddings = \
+                                self.query_pred_edge_batch(model_name=model_name, model=model, 
+                                    src_node_ids=np.array([batch_src_node_ids[idx]]), dst_node_ids=np.array([batch_dst_node_ids[idx]]), 
+                                    node_interact_times=np.array([batch_node_interact_times[idx]]), edge_ids=np.array([batch_edge_ids[idx]]),
+                                    edges_are_positive=True, num_neighbors=num_neighbors, time_gap=time_gap)
                         
-                        # one positive edge
-                        batch_pos_src_node_embeddings, batch_pos_dst_node_embeddings = \
-                            self.query_pred_edge_batch(model_name=model_name, model=model, 
-                                src_node_ids=np.array([batch_src_node_ids[idx]]), dst_node_ids=np.array([batch_dst_node_ids[idx]]), 
-                                node_interact_times=np.array([batch_node_interact_times[idx]]), edge_ids=np.array([batch_edge_ids[idx]]),
-                                edges_are_positive=True, num_neighbors=num_neighbors, time_gap=time_gap)
+                        else: # OBS: remove this part
+                            kwargs = {
+                                "batch_src_node_ids": np.array([batch_src_node_ids[idx]]),
+                                "batch_dst_node_ids": np.array([batch_dst_node_ids[idx]]),
+                                "batch_node_interact_times": np.array([batch_node_interact_times[idx]]),
+                                "batch_edge_ids": np.array([batch_edge_ids[idx]]),
+                                "batch_neg_src_node_ids": batch_neg_src_node_ids,
+                                "batch_neg_dst_node_ids": batch_neg_dst_node_ids,
+                                "batch_neg_node_interact_times": batch_neg_node_interact_times,
+                                "num_neighbors": num_neighbors,
+                                "time_gap": time_gap
+                            }
+
+                            batch_pos_src_node_embeddings, batch_pos_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=True)
+                            batch_neg_src_node_embeddings, batch_neg_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=False)
 
                         pos_logits = model[1](input_1=batch_pos_src_node_embeddings, input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1)
                         neg_logits = model[1](input_1=batch_neg_src_node_embeddings, input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
@@ -240,8 +257,8 @@ class Ensemble(nn.Module):
                 output_pred = self.combiner(combined_logits, return_logits=True).squeeze(1)
 
                 input_dict = {
-                    'y_pred_pos': np.array(output_pred[labels == 1].cpu()),
-                    'y_pred_neg': np.array(output_pred[labels == 0].cpu()),
+                    'y_pred_pos': output_pred[labels == 1].cpu().detach().numpy(),
+                    'y_pred_neg': output_pred[labels == 0].cpu().detach().numpy(),
                     'eval_metric': [metric]
                 }
 

@@ -216,6 +216,7 @@ def main():
                 kwargs = {'batch_src_node_ids': batch_src_node_ids, 
                           'batch_dst_node_ids': batch_dst_node_ids, 
                           'batch_node_interact_times': batch_node_interact_times,
+                          'batch_neg_node_interact_times': batch_node_interact_times,
                           'num_neighbors': args.num_neighbors,
                           'batch_neg_src_node_ids': batch_neg_src_node_ids,
                           'batch_neg_dst_node_ids': batch_neg_dst_node_ids,
