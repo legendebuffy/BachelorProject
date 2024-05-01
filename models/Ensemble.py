@@ -25,8 +25,8 @@ class Ensemble(nn.Module):
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
             node_interact_times = kwargs["batch_node_interact_times"]
-            edge_ids = None if positive else kwargs["batch_edge_ids"]
-            edges_are_positive = not positive
+            edge_ids = None if not positive else kwargs["batch_edge_ids"]
+            edges_are_positive = positive
             num_neighbors = kwargs["num_neighbors"]
             return model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
                                                                     dst_node_ids=dst_node_ids,
@@ -92,6 +92,7 @@ class Ensemble(nn.Module):
         ensemble_loss = loss_func(output, labels)
         loss = ensemble_loss*0.5 + weighted_losses*0.5
 
+        #loss.requires_grad = True # OBS: wth is this??
         loss.backward()
         optimizer.step()
 
@@ -111,14 +112,10 @@ class Ensemble(nn.Module):
         logits = []
         labels = []
 
-        
+        evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
-            if subset == 'True' and batch_idx > 1:
-                break
-            
-            evaluate_losses, evaluate_metrics = [], []
-            evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
-
+            # if subset == 'True' and batch_idx > 1:
+            #     break
             
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                 evaluate_data.src_node_ids[evaluate_data_indices],  evaluate_data.dst_node_ids[evaluate_data_indices], \
@@ -132,8 +129,8 @@ class Ensemble(nn.Module):
 
             for idx, neg_batch in enumerate(neg_batch_list):
 
-                if subset == 'True' and idx > 1:
-                    break
+                # if subset == 'True' and idx > 1:
+                #     break
                         
                 for model, model_name in zip(self.base_models, self.model_names):
             
@@ -200,9 +197,10 @@ class LogisticRegressionModel(nn.Module):
         self.linear = nn.Linear(input_dim, output_dim)
 
     def forward(self, x, return_logits=False):
-        outputs_logit = torch.tensor(self.linear(x))
+        outputs_logit = self.linear(x)
         if return_logits:
             return outputs_logit
         else:
             outputs_pred = torch.sigmoid(outputs_logit)
             return outputs_pred
+        # return torch.sigmoid(self.linear(x))
