@@ -14,7 +14,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='tgbl-wiki',
                         choices=['tgbl-flight', 'tgbl-wiki', 'tgbl-review', 'tgbl-coin', 'tbgl-comment'])
     parser.add_argument('--batch_size', type=int, default=200, help='batch size')
-    parser.add_argument('--model_name', type=str, default='TGN_DyRep', help='name of the model, note that EdgeBank is only applicable for evaluation')
+    parser.add_argument('--model_name', type=str, default='TGN_GraphMixer', help='name of the model, note that EdgeBank is only applicable for evaluation')
                         #choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])
     # parser.add_argument('--gpu', type=int, default=0, help='ID of gpu to use')
     parser.add_argument('--num_neighbors', type=int, default=20, help='number of neighbors to sample for each node') 
@@ -59,7 +59,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     
     # DTU: To save logits for simple ensemble
     parser.add_argument('--logits', type=str, default="False", help='to save logits')
-    parser.add_argument('--subset', type=str, default="True", help='to save subset of data')
+    parser.add_argument('--subset', type=str, default="False", help='to save subset of data')
 
     try:
         args = parser.parse_args()

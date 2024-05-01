@@ -45,7 +45,7 @@ class Ensemble(nn.Module):
                                                                     node_interact_times=node_interact_times,
                                                                     num_neighbors=num_neighbors,
                                                                     time_gap=time_gap)
-        elif model_name in ['DyGformer']:
+        elif model_name in ['DyGFormer']:
             src_node_ids = kwargs["batch_src_node_ids"] if positive else kwargs["batch_neg_src_node_ids"]
             dst_node_ids = kwargs["batch_dst_node_ids"] if positive else kwargs["batch_neg_dst_node_ids"]
             node_interact_times = kwargs["batch_node_interact_times"]
@@ -102,6 +102,59 @@ class Ensemble(nn.Module):
 
         return loss.item()
 
+    
+    def query_pred_edge_batch(self, model_name: str, model: nn.Module, 
+                            src_node_ids: int, dst_node_ids: int, node_interact_times: float, edge_ids: int,
+                            edges_are_positive: bool, num_neighbors: int, time_gap: int):
+        """
+        query the prediction probabilities for a batch of edges
+        """
+        if model_name in ['TGAT', 'CAWN', 'TCL']:
+            # get temporal embedding of source and destination nodes
+            # two Tensors, with shape (batch_size, node_feat_dim)
+            batch_src_node_embeddings, batch_dst_node_embeddings = \
+                model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
+                                                                dst_node_ids=dst_node_ids,
+                                                                node_interact_times=node_interact_times,
+                                                                num_neighbors=num_neighbors)
+
+        elif model_name in ['JODIE', 'DyRep', 'TGN']:
+            # get temporal embedding of source and destination nodes
+            # two Tensors, with shape (batch_size, node_feat_dim)
+            batch_src_node_embeddings, batch_dst_node_embeddings = \
+                model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
+                                                                    dst_node_ids=dst_node_ids,
+                                                                    node_interact_times=node_interact_times,
+                                                                    edge_ids=edge_ids,
+                                                                    edges_are_positive=edges_are_positive,
+                                                                    num_neighbors=num_neighbors)
+
+        elif model_name in ['GraphMixer']:
+            # get temporal embedding of source and destination nodes
+            # two Tensors, with shape (batch_size, node_feat_dim)
+            batch_src_node_embeddings, batch_dst_node_embeddings = \
+                model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
+                                                                    dst_node_ids=dst_node_ids,
+                                                                    node_interact_times=node_interact_times,
+                                                                    num_neighbors=num_neighbors,
+                                                                    time_gap=time_gap)
+
+        elif model_name in ['DyGFormer']:
+            # get temporal embedding of source and destination nodes
+            # two Tensors, with shape (batch_size, node_feat_dim)
+            batch_src_node_embeddings, batch_dst_node_embeddings = \
+                model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=src_node_ids,
+                                                                    dst_node_ids=dst_node_ids,
+                                                                    node_interact_times=node_interact_times)
+
+        else:
+            raise ValueError(f"Wrong value for model_name {model_name}!")
+            batch_src_node_embeddings, batch_dst_node_embeddings = None, None
+            
+        return batch_src_node_embeddings, batch_dst_node_embeddings
+
+
+
     def eval_TGB(self, neighbor_sampler, evaluate_idx_data_loader,
                 evaluate_data,  negative_sampler: object, evaluator, metric: str = 'mrr',
                 split_mode: str = 'test', k_value: int = 10, num_neighbors: int = 20, time_gap: int = 2000,
@@ -157,10 +210,24 @@ class Ensemble(nn.Module):
                             "time_gap": time_gap
                         }
 
-                        batch_src_node_embeddings, batch_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=True)
-                        batch_neg_src_node_embeddings, batch_neg_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=False)
+                        # batch_src_node_embeddings, batch_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=True)
+                        # batch_neg_src_node_embeddings, batch_neg_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=False)
 
-                        pos_logits = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings).squeeze(dim=-1)
+                        # negative edges
+                        batch_neg_src_node_embeddings, batch_neg_dst_node_embeddings = \
+                            self.query_pred_edge_batch(model_name=model_name, model=model, 
+                                src_node_ids=batch_neg_src_node_ids, dst_node_ids=batch_neg_dst_node_ids, 
+                                node_interact_times=batch_neg_node_interact_times, edge_ids=None,
+                                edges_are_positive=False, num_neighbors=num_neighbors, time_gap=time_gap)
+                        
+                        # one positive edge
+                        batch_pos_src_node_embeddings, batch_pos_dst_node_embeddings = \
+                            self.query_pred_edge_batch(model_name=model_name, model=model, 
+                                src_node_ids=np.array([batch_src_node_ids[idx]]), dst_node_ids=np.array([batch_dst_node_ids[idx]]), 
+                                node_interact_times=np.array([batch_node_interact_times[idx]]), edge_ids=np.array([batch_edge_ids[idx]]),
+                                edges_are_positive=True, num_neighbors=num_neighbors, time_gap=time_gap)
+
+                        pos_logits = model[1](input_1=batch_pos_src_node_embeddings, input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1)
                         neg_logits = model[1](input_1=batch_neg_src_node_embeddings, input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
 
                         logit = torch.cat([pos_logits, neg_logits], dim=0)
