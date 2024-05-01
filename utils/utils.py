@@ -135,6 +135,10 @@ class NeighborSampler:
         :param return_sampled_probabilities: boolean, whether return the sampled probabilities of neighbors
         :return: neighbors, edge_ids, timestamps and sampled_probabilities (if return_sampled_probabilities is True) with shape (historical_nodes_num, )
         """
+
+        # OBS: delete this
+        node_id -= 1
+
         # return index i, which satisfies list[i - 1] < v <= list[i]
         # return 0 for the first position in self.nodes_neighbor_times since the value at the first position is empty
         i = np.searchsorted(self.nodes_neighbor_times[node_id], interact_time)

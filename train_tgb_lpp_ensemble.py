@@ -222,7 +222,9 @@ def main():
                           'batch_neg_dst_node_ids': batch_neg_dst_node_ids,
                           'batch_edge_ids': batch_edge_ids,
                           'time_gap': args.time_gap}
-                loss = ensemble.train_step(loss_func, optimizer, train_neighbor_sampler,  **kwargs)
+                loss, predictions, labels = ensemble.train_step(loss_func, optimizer, train_neighbor_sampler,  **kwargs)
+
+                train_metrics.append(get_link_prediction_metrics(predictions, labels))
 
                 train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss}')
 
@@ -245,7 +247,7 @@ def main():
             val_metric_indicator = [(metric, val_metric, True)]
             early_stop = early_stopping.step(val_metric_indicator, ensemble)
 
-            if early_stop:
+            if early_stop or (args.subset and epoch > 0):
                 break
 
         # load the best model
