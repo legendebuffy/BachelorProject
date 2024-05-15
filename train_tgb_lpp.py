@@ -147,7 +147,7 @@ def main():
         optimizer = create_optimizer(model=model, optimizer_name=args.optimizer, 
                                     learning_rate=args.learning_rate, weight_decay=args.weight_decay)
 
-        model = convert_to_gpu(model, device=args.device)
+        model = convert_to_gpu(model, device=args.device) # YAHNI args.device
 
         save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
         shutil.rmtree(save_model_folder, ignore_errors=True)
@@ -177,13 +177,15 @@ def main():
             train_losses, train_metrics = [], []
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
+                if args.subset == 'True' and batch_idx >= 1:
+                    break
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], \
                     train_data.node_interact_times[train_data_indices], train_data.edge_ids[train_data_indices]
 
                 _, batch_neg_dst_node_ids = train_neg_edge_sampler.sample(size=len(batch_src_node_ids))
                 batch_neg_src_node_ids = batch_src_node_ids
-
+                torch.cuda.empty_cache()
                 # we need to compute for positive and negative edges respectively, because the new sampling strategy (for evaluation) allows the negative source nodes to be
                 # different from the source nodes, this is different from previous works that just replace destination nodes with negative destination nodes
                 if args.model_name in ['TGAT', 'CAWN', 'TCL']:
@@ -288,7 +290,8 @@ def main():
             val_metric,_,_ = eval_LPP_TGB(model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
-                                      split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
+                                      split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
+                                      subset=args.subset)
             val_perf_list.append(val_metric)
             
             epoch_time = timeit.default_timer() - start_epoch
@@ -301,7 +304,7 @@ def main():
             val_metric_indicator = [(metric, val_metric, True)]
             early_stop = early_stopping.step(val_metric_indicator, model)
 
-            if early_stop:
+            if early_stop or (args.subset and epoch > 0):
                 break
 
         # load the best model
@@ -319,7 +322,8 @@ def main():
         test_metric, pos_test_logits, neg_test_logits = eval_LPP_TGB(model_name=args.model_name, model=model, 
                                     neighbor_sampler=full_neighbor_sampler,evaluate_idx_data_loader=test_idx_data_loader, 
                                     evaluate_data=test_data, negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
-                                   split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap)
+                                   split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
+                                   subset=args.subset)
         # To save logits for simple ensemble
         if args.logits == "True":
             logits = torch.cat([pos_test_logits, neg_test_logits], dim=0)
