@@ -146,7 +146,10 @@ class Ensemble(nn.Module):
                     model.eval()
 
                     with torch.no_grad():
-                        neg_batch = np.array(neg_batch) + 1
+                        
+                        neg_batch = np.array(neg_batch) # why +1 ?
+                        if model == self.base_models[0]:
+                            neg_batch = neg_batch + 1
                         batch_neg_src_node_ids = np.array([int(batch_src_node_ids[idx]) for _ in range(len(neg_batch))])
                         batch_neg_dst_node_ids = np.array(neg_batch)
                         batch_neg_node_interact_times = np.array([batch_node_interact_times[idx] for _ in range(len(neg_batch))])

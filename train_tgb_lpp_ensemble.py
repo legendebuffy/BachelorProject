@@ -203,7 +203,7 @@ def main():
 
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
-                if args.subset == 'True' and batch_idx > 1:
+                if args.subset == 'True' and batch_idx >= 1:
                     break
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], \
@@ -247,7 +247,7 @@ def main():
             val_metric_indicator = [(metric, val_metric, True)]
             early_stop = early_stopping.step(val_metric_indicator, ensemble)
 
-            if early_stop or (args.subset and epoch > 0):
+            if early_stop or (args.subset and epoch >= 0):
                 break
 
         # load the best model

@@ -4,6 +4,8 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 
+import logging
+
 
 def set_random_seed(seed: int = 0):
     """
@@ -136,8 +138,15 @@ class NeighborSampler:
         :return: neighbors, edge_ids, timestamps and sampled_probabilities (if return_sampled_probabilities is True) with shape (historical_nodes_num, )
         """
 
-        # OBS: delete this
-        node_id -= 1
+        # DTU: OBS, delete this
+        # node_id -= 1
+        # if node_id < 0:
+        #     logging.basicConfig(level=logging.INFO)
+        #     logger = logging.getLogger()
+        #     logger.setLevel(logging.DEBUG)
+        #     logger.addHandler(fh)
+        #     logger.addHandler(ch)
+        #     logger.info(f"Oh no! node_id < 0: {node_id}")
 
         # return index i, which satisfies list[i - 1] < v <= list[i]
         # return 0 for the first position in self.nodes_neighbor_times since the value at the first position is empty
