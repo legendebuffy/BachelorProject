@@ -304,7 +304,8 @@ def main():
             val_metric_indicator = [(metric, val_metric, True)]
             early_stop = early_stopping.step(val_metric_indicator, model)
 
-            if early_stop or (args.subset and epoch > 0):
+            if early_stop or (args.subset == "True" and epoch > 0):
+                logger.info(f'Early stopping at epoch {epoch + 1}')
                 break
 
         # load the best model
