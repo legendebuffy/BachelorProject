@@ -235,7 +235,7 @@ class MemoryModel(torch.nn.Module):
         src_node_delta_time_features = self.time_encoder(src_node_delta_times.unsqueeze(dim=1)).reshape(len(src_node_ids), -1)
 
         # Tensor, shape (batch_size, edge_feat_dim)
-        edge_features = self.edge_raw_features[torch.from_numpy(edge_ids)]
+        edge_features = self.edge_raw_features[torch.from_numpy(edge_ids)-1]
 
         # Tensor, shape (batch_size, message_dim = memory_dim + memory_dim + time_feat_dim + edge_feat_dim)
         new_src_node_raw_messages = torch.cat([src_node_memories, dst_node_memories, src_node_delta_time_features, edge_features], dim=1)

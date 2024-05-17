@@ -598,9 +598,7 @@ functions for review
 """
 
 def csv_to_pd_data_rw(fname: str) -> pd.DataFrame:
-    num_edges = 4873540
     num_nodes = 352637
-    max_edges = DATASET_LENGTH
     max_nodes = 4000
     node_frequency = Counter()
     feat_size = 1
@@ -614,7 +612,7 @@ def csv_to_pd_data_rw(fname: str) -> pd.DataFrame:
             node_frequency[src] += 1
             node_frequency[dst] += 1
 
-    # Determine the most frequent nodes to include
+    # Determine the least frequent nodes to include
     bot_nodes = set()
     nodes_removed = 0
     # start from the least frequent nodes

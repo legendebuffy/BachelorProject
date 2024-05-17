@@ -87,60 +87,24 @@ def load_link_prediction_best_configs(args: argparse.Namespace):
     if args.model_name == 'TGAT':
         args.num_neighbors = 20
         args.num_layers = 2
-        if args.dataset_name in ['enron', 'CanParl', 'UNvote']:
-            args.dropout = 0.2
-        else:
-            args.dropout = 0.1
-        if args.dataset_name in ['reddit', 'CanParl', 'UNtrade']:
-            args.sample_neighbor_strategy = 'uniform'
-        else:
-            args.sample_neighbor_strategy = 'recent'
+        args.dropout = 0.1
+        args.sample_neighbor_strategy = 'recent'
     elif args.model_name in ['JODIE', 'DyRep', 'TGN']:
         args.num_neighbors = 10
         args.num_layers = 1
         if args.model_name == 'JODIE':
-            if args.dataset_name in ['mooc', 'USLegis']:
-                args.dropout = 0.2
-            elif args.dataset_name in ['lastfm']:
-                args.dropout = 0.3
-            elif args.dataset_name in ['uci', 'UNtrade']:
-                args.dropout = 0.4
-            elif args.dataset_name in ['CanParl']:
-                args.dropout = 0.0
-            else:
-                args.dropout = 0.1
+            args.dropout = 0.1
         elif args.model_name == 'DyRep':
-            if args.dataset_name in ['mooc', 'lastfm', 'enron', 'uci', 'CanParl', 'USLegis', 'Contacts']:
-                args.dropout = 0.0
-            else:
-                args.dropout = 0.1
+            args.dropout = 0.1
         else:
             assert args.model_name == 'TGN'
-            if args.dataset_name in ['mooc', 'UNtrade']:
-                args.dropout = 0.2
-            elif args.dataset_name in ['lastfm', 'CanParl']:
-                args.dropout = 0.3
-            elif args.dataset_name in ['enron', 'SocialEvo']:
-                args.dropout = 0.0
-            else:
-                args.dropout = 0.1
+            args.dropout = 0.1
         if args.model_name in ['TGN', 'DyRep']:
-            if args.dataset_name in ['CanParl'] or (args.model_name == 'TGN' and args.dataset_name == 'UNvote'):
-                args.sample_neighbor_strategy = 'uniform'
-            else:
-                args.sample_neighbor_strategy = 'recent'
+            args.sample_neighbor_strategy = 'recent'
     elif args.model_name == 'CAWN':
         args.time_scaling_factor = 1e-6
-        if args.dataset_name in ['mooc', 'SocialEvo', 'uci', 'Flights', 'UNtrade', 'UNvote', 'Contacts']:
-            args.num_neighbors = 64
-        elif args.dataset_name in ['lastfm', 'CanParl']:
-            args.num_neighbors = 128
-        else:
-            args.num_neighbors = 32
-        if args.dataset_name in ['CanParl']:
-            args.dropout = 0.0
-        else:
-            args.dropout = 0.1
+        args.num_neighbors = 32
+        args.dropout = 0.1
         args.sample_neighbor_strategy = 'time_interval_aware'
     elif args.model_name == 'EdgeBank':
         if args.negative_sample_strategy == 'random':
@@ -180,69 +144,19 @@ def load_link_prediction_best_configs(args: argparse.Namespace):
     elif args.model_name == 'TCL':
         args.num_neighbors = 20
         args.num_layers = 2
-        if args.dataset_name in ['SocialEvo', 'uci', 'UNtrade', 'UNvote', 'Contacts']:
-            args.dropout = 0.0
-        elif args.dataset_name in ['CanParl']:
-            args.dropout = 0.2
-        elif args.dataset_name in ['USLegis']:
-            args.dropout = 0.3
-        else:
-            args.dropout = 0.1
-        if args.dataset_name in ['reddit', 'CanParl', 'USLegis', 'UNtrade', 'UNvote']:
-            args.sample_neighbor_strategy = 'uniform'
-        else:
-            args.sample_neighbor_strategy = 'recent'
+        args.dropout = 0.1
+        args.sample_neighbor_strategy = 'recent'
     elif args.model_name == 'GraphMixer':
         args.num_layers = 2
-        if args.dataset_name in ['wikipedia']:
-            args.num_neighbors = 30
-        elif args.dataset_name in ['reddit', 'lastfm']:
-            args.num_neighbors = 10
-        else:
-            args.num_neighbors = 20
-        if args.dataset_name in ['wikipedia', 'reddit', 'enron']:
-            args.dropout = 0.5
-        elif args.dataset_name in ['mooc', 'uci', 'USLegis']:
-            args.dropout = 0.4
-        elif args.dataset_name in ['lastfm', 'UNvote']:
-            args.dropout = 0.0
-        elif args.dataset_name in ['SocialEvo']:
-            args.dropout = 0.3
-        elif args.dataset_name in ['Flights', 'CanParl']:
-            args.dropout = 0.2
-        else:
-            args.dropout = 0.1
-        if args.dataset_name in ['CanParl', 'UNtrade', 'UNvote']:
-            args.sample_neighbor_strategy = 'uniform'
-        else:
-            args.sample_neighbor_strategy = 'recent'
+        args.num_neighbors = 20
+        args.dropout = 0.1
+        args.sample_neighbor_strategy = 'recent'
     elif args.model_name == 'DyGFormer':
         args.num_layers = 2
-        if args.dataset_name in ['reddit']:
-            args.max_input_sequence_length = 64
-            args.patch_size = 2
-        elif args.dataset_name in ['mooc', 'enron', 'Flights', 'USLegis', 'UNtrade']:
-            args.max_input_sequence_length = 256
-            args.patch_size = 8
-        elif args.dataset_name in ['lastfm']:
-            args.max_input_sequence_length = 512
-            args.patch_size = 16
-        elif args.dataset_name in ['CanParl']:
-            args.max_input_sequence_length = 2048
-            args.patch_size = 64
-        elif args.dataset_name in ['UNvote']:
-            args.max_input_sequence_length = 128
-            args.patch_size = 4
-        else:
-            args.max_input_sequence_length = 32
-            args.patch_size = 1
+        args.max_input_sequence_length = 32
+        args.patch_size = 1
         assert args.max_input_sequence_length % args.patch_size == 0
-        if args.dataset_name in ['reddit', 'UNvote']:
-            args.dropout = 0.2
-        elif args.dataset_name in ['enron', 'USLegis', 'UNtrade', 'Contacts']:
-            args.dropout = 0.0
-        else:
-            args.dropout = 0.1
+        args.dropout = 0.1
     else:
         raise ValueError(f"Wrong value for model_name {args.model_name}!")
 
