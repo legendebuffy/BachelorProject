@@ -12,7 +12,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     # arguments
     parser = argparse.ArgumentParser('DyGLib: Interface for the link prediction task')
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='tgbl-wiki',
-                        choices=['tgbl-flight', 'tgbl-wiki', 'tgbl-review', 'tgbl-coin', 'tbgl-comment'])
+                        choices=['tgbl-flight', 'tgbl-wiki', 'tgbl-review', 'tgbl-coin', 'tgbl-comment'])
     parser.add_argument('--batch_size', type=int, default=200, help='batch size')
     parser.add_argument('--model_name', type=str, default='TGN_GraphMixer', help='name of the model, note that EdgeBank is only applicable for evaluation')
                         #choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])

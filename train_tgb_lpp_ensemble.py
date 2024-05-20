@@ -45,6 +45,7 @@ def main():
 
     # get arguments
     args = get_link_prediction_args(is_evaluation=False)
+    args.subset = args.subset == 'True' # Convert string to boolean
 
     # get data for training, validation and testing
     node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, dataset = \
@@ -192,6 +193,13 @@ def main():
         # ================================================
         # ============== train & validation ==============
         # ================================================
+
+        # For plotting
+        all_train_losses = []
+        all_train_metrics = [[] for _ in range(2)]
+        all_val_metric = []
+        all_individual_losses = []
+
         val_perf_list = []
         print("Start training epochs..")
         for epoch in range(args.num_epochs):
@@ -203,7 +211,7 @@ def main():
 
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
-                if args.subset == 'True' and batch_idx >= 1:
+                if args.subset and batch_idx > 2:
                     break
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], \
@@ -222,9 +230,16 @@ def main():
                           'batch_neg_dst_node_ids': batch_neg_dst_node_ids,
                           'batch_edge_ids': batch_edge_ids,
                           'time_gap': args.time_gap}
-                loss, predictions, labels = ensemble.train_step(loss_func, optimizer, train_neighbor_sampler,  **kwargs)
+                loss, predictions, labels, individual_loss = ensemble.train_step(loss_func, optimizer, train_neighbor_sampler,  **kwargs)
 
                 train_metrics.append(get_link_prediction_metrics(predictions, labels))
+                train_losses.append(loss)
+                if batch_idx == 0:
+                    individual_losses = individual_loss
+                else:
+                    individual_losses = torch.vstack((individual_losses, individual_loss))
+                    # individual_losses[0] gives first batch's individual losses
+                    # individual_losses[:0] gives first models' losses across all batches' 
 
                 train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss}')
 
@@ -239,15 +254,22 @@ def main():
             
             epoch_time = timeit.default_timer() - start_epoch
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}, elapsed time (s): {epoch_time:.4f}')
-            for metric_name in train_metrics[0].keys():
+            for n_metric, metric_name in enumerate(train_metrics[0].keys()):
                 logger.info(f'train {metric_name}, {np.mean([train_metric[metric_name] for train_metric in train_metrics]):.4f}')
+
+            # For plotting
+                all_train_metrics[n_metric].append(np.mean([train_metric[metric_name] for train_metric in train_metrics]))
+            all_train_losses.append(train_losses)
+            all_val_metric.append(val_metric)
+            all_individual_losses.append(individual_losses)
+
             logger.info(f'Validation: {metric}: {val_metric: .4f}')
 
             # select the best model based on all the validate metrics
             val_metric_indicator = [(metric, val_metric, True)]
             early_stop = early_stopping.step(val_metric_indicator, ensemble)
 
-            if early_stop or (args.subset and epoch >= 0):
+            if early_stop or (args.subset and epoch > 2):
                 break
 
         # load the best model
@@ -255,6 +277,25 @@ def main():
 
         total_train_val_time = timeit.default_timer() - start_run
         logger.info(f'Total train & validation elapsed time (s): {total_train_val_time:.6f}')
+
+        # DTU: at end of every run (after all epochs), print list containing all train losses 
+        logger.info('\n------------ DTU ------------\nRun {}\n'.format(run))
+        logger.info('\tall_train_losses: {}'.format(all_train_losses))
+        for n_metric, metric_name in enumerate(train_metrics[0].keys()):
+            logger.info('all_train_metrics({}) {}: {}'.format(n_metric, metric_name, all_train_metrics[n_metric]))
+        logger.info('\tall_val_metric: {}'.format(all_val_metric))
+        logger.info('\tall_individual_losses: {}'.format(all_individual_losses))
+        
+        # Save in files
+        save_model_folder = f"./DTU_Test/data_plots/{args.save_model_name}/"
+        os.makedirs(save_model_folder, exist_ok=True)
+        for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric, all_individual_losses], ['all_train_losses', 'all_train_metrics', 'all_val_metric', 'all_individual_losses']):
+            np.save(save_model_folder + data_name, data)
+        # torch.save(, f"{save_model_folder}ensemble.pth")
+
+        # load data
+        all_train_losses = np.load(save_model_folder + 'all_train_losses.npy', allow_pickle=True)
+
         
         # ========================================
         # ============== Final Test ==============

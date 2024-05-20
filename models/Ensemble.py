@@ -89,14 +89,13 @@ class Ensemble(nn.Module):
 
     def train_step(self, loss_func, optimizer, train_neighbor_sampler, **kwargs):
         optimizer.zero_grad()
-        output, losses, labels = self.forward(loss_func, train_neighbor_sampler, **kwargs)
+        output, individual_losses, labels = self.forward(loss_func, train_neighbor_sampler, **kwargs)
 
-        weights = torch.ones(len(losses))/len(losses)
-        weighted_losses = sum(weights*losses)
+        weights = torch.ones(len(individual_losses))/len(individual_losses)
+        weighted_losses = sum(weights*individual_losses)
         ensemble_loss = loss_func(output, labels)
         loss = ensemble_loss*0.5 + weighted_losses*0.5
 
-        #loss.requires_grad = True # OBS: wth is this??
         loss.backward()
         optimizer.step()
 
@@ -106,19 +105,27 @@ class Ensemble(nn.Module):
 
         predictions = torch.sigmoid(output)
 
-        return loss.item(), predictions, labels
+        return loss.item(), predictions, labels, individual_losses
 
 
-    def eval_TGB(self, neighbor_sampler, evaluate_idx_data_loader,
-                evaluate_data,  negative_sampler: object, evaluator, metric: str = 'mrr',
-                split_mode: str = 'test', k_value: int = 10, num_neighbors: int = 20, time_gap: int = 2000,
-                subset: str = 'False'):
+    def eval_TGB(self, 
+                 neighbor_sampler, 
+                 evaluate_idx_data_loader,
+                 evaluate_data,  
+                 negative_sampler: object, 
+                 evaluator, metric: str = 'mrr',
+                 split_mode: str = 'test', 
+                 k_value: int = 10, 
+                 num_neighbors: int = 20, 
+                 time_gap: int = 2000,
+                 subset: bool = False
+                ):
         
         perf_list = []
 
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
-            if subset == 'True' and batch_idx > 3:
+            if subset and batch_idx > 3:
                 break
             
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
@@ -132,7 +139,7 @@ class Ensemble(nn.Module):
                                                     pos_t, split_mode=split_mode)
 
             for idx, neg_batch in enumerate(neg_batch_list):
-                if subset == 'True' and idx > 3:
+                if subset and idx > 3:
                     break
 
                 logits = []
