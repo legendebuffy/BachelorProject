@@ -230,7 +230,7 @@ def main():
                 if args.subset and batch_idx > 2:
                     break
 
-                mem_id = 1 if (batch_idx == 0 and epoch == 0) else 0
+                mem_id = 1 #if (batch_idx == 0 and epoch == 0) else 0
                 history_data = Data(src_node_ids=train_data.src_node_ids[: train_data_indices[mem_id]],
                     dst_node_ids=train_data.dst_node_ids[: train_data_indices[mem_id]],
                     node_interact_times=train_data.node_interact_times[: train_data_indices[mem_id]],

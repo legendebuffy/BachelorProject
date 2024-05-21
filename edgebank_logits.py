@@ -9,6 +9,7 @@ import os.path as osp
 from pathlib import Path
 import sys
 import argparse
+import torch
 
 # internal imports
 from tgb.linkproppred.evaluate import Evaluator
@@ -17,7 +18,7 @@ from tgb.utils.utils import set_random_seed
 from tgb.linkproppred.dataset import LinkPropPredDataset
 from tgb.utils.utils import save_results
 
-def ensemble_test(data, test_mask, neg_sampler, split_mode, subset='True', edgebank=None, metric=None):
+def ensemble_test(data, test_mask, neg_sampler, split_mode, subset='False', edgebank=None, metric=None):
     evaluator = Evaluator(name=DATA)
     if subset == 'True':
         print("INFO: Subset is True")
@@ -58,9 +59,9 @@ def ensemble_test(data, test_mask, neg_sampler, split_mode, subset='True', edgeb
 
     return perf_metrics, logits_list
 
-def get_edgebank_logits():
+def get_edgebank_logits(subset, data):
     # data loading with `numpy`
-    dataset = LinkPropPredDataset(name=DATA, root="datasets", preprocess=True)
+    dataset = LinkPropPredDataset(name=data, root="datasets", preprocess=True)
     metric = dataset.eval_metric
     data = dataset.full_data  
 
@@ -86,14 +87,14 @@ def get_edgebank_logits():
     dataset.load_val_ns()
 
     # testing ...
-    _, logits = ensemble_test(data, val_mask, neg_sampler, split_mode='val', subset='True', edgebank=edgebank, metric=metric)
+    _, logits = ensemble_test(data, val_mask, neg_sampler, split_mode='val', subset=subset, edgebank=edgebank, metric=metric)
 
     return logits
 
 def get_args_edgebank():
     parser = argparse.ArgumentParser('*** TGB: EdgeBank ***')
     parser.add_argument('--subset', type=str, help='Subset of the dataset', default='False', choices=['True', 'False'])
-    parser.add_argument('-d', '--data', type=str, help='Dataset name', default='tgbl-comment', choices=['tgbl-coin', 'tgbl-comment', 'tgbl-flight', 'tgbl-review', 'tgbl-wiki'])
+    parser.add_argument('-d', '--data', type=str, help='Dataset name', default='tgbl-wiki', choices=['tgbl-coin', 'tgbl-comment', 'tgbl-flight', 'tgbl-review', 'tgbl-wiki'])
     parser.add_argument('--run', type=str, help='Run name', default='run1')
     parser.add_argument('--k_value', type=int, help='k_value for computing ranking metrics', default=10)
     parser.add_argument('--seed', type=int, help='Random seed', default=1)
@@ -115,17 +116,17 @@ SEED = args.seed  # set the random seed for consistency
 set_random_seed(SEED)
 MEMORY_MODE = args.mem_mode # `unlimited` or `fixed_time_window`
 BATCH_SIZE = args.bs
-K_VALUE = args.k_value
-TIME_WINDOW_RATIO = args.time_window_ratio
 DATA = args.data
-run_name = args.run
 SUBSET = args.subset
+#K_VALUE = args.k_value
+#TIME_WINDOW_RATIO = args.time_window_ratio
+#run_name = args.run
 
 start_val = timeit.default_timer()
-logits = get_edgebank_logits()
+logits = get_edgebank_logits(subset=SUBSET, data=DATA)
 end_val = timeit.default_timer()
 
 print(len(logits), len(logits[0]), type(logits),type(logits[0]))
-logits_numpy = np.array(logits)
 
-np.save('../edgebank_logits.npy', logits_numpy)
+os.makedirs(f"./saved_logits/EdgeBank/{args.data}/", exist_ok=True)
+torch.save(logits, f"./saved_logits/EdgeBank/{args.data}/EdgeBank_logits.pth")
