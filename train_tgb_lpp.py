@@ -333,7 +333,7 @@ def main():
             logger.info('all_train_metrics({}) {}: {}'.format(n_metric, metric_name, all_train_metrics[n_metric]))
         logger.info('\tall_val_metric: {}'.format(all_val_metric))
         # Save in files
-        save_model_folder = f"./DTU_Test/data_plots/individual/{args.save_model_name}/"
+        save_model_folder = f"./DTU_Test/data_plots/individual/{args.model_name}/{args.dataset_name}/"
         os.makedirs(save_model_folder, exist_ok=True)
         for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric], ['all_train_losses', 'all_train_metrics', 'all_val_metric']):
             np.save(save_model_folder + data_name, data)

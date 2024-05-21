@@ -239,7 +239,7 @@ def main():
                 else:
                     individual_losses = torch.vstack((individual_losses, individual_loss))
                     # individual_losses[0] gives first batch's individual losses
-                    # individual_losses[:0] gives first models' losses across all batches' 
+                    # individual_losses[:,0] gives first models' losses across all batches' 
 
                 train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss}')
 
@@ -286,7 +286,7 @@ def main():
         logger.info('\tall_val_metric: {}'.format(all_val_metric))
         logger.info('\tall_individual_losses: {}'.format(all_individual_losses))
         # Save in files
-        save_model_folder = f"./DTU_Test/data_plots/ensemble/{args.save_model_name}/"
+        save_model_folder = f"./DTU_Test/data_plots/ensemble/{args.model_name}/{args.dataset_name}/"
         os.makedirs(save_model_folder, exist_ok=True)
         for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric, all_individual_losses], ['all_train_losses', 'all_train_metrics', 'all_val_metric', 'all_individual_losses']):
             np.save(save_model_folder + data_name, data)
