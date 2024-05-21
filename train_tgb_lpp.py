@@ -162,6 +162,11 @@ def main():
         # ================================================
         # ============== train & validation ==============
         # ================================================
+        # DTU
+        all_train_losses = []
+        all_train_metrics = [[] for _ in range(2)]
+        all_val_metric = []
+
         val_perf_list = []
         for epoch in range(args.num_epochs):
             start_epoch = timeit.default_timer()
@@ -296,15 +301,23 @@ def main():
             
             epoch_time = timeit.default_timer() - start_epoch
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}, elapsed time (s): {epoch_time:.4f}')
-            for metric_name in train_metrics[0].keys():
+            for n_metric, metric_name in enumerate(train_metrics[0].keys()):
                 logger.info(f'train {metric_name}, {np.mean([train_metric[metric_name] for train_metric in train_metrics]):.4f}')
+                
+                # DTU
+                all_train_metrics[n_metric].append(np.mean([train_metric[metric_name] for train_metric in train_metrics]))
+            
             logger.info(f'Validation: {metric}: {val_metric: .4f}')
+
+            # DTU
+            all_train_losses.append(train_losses)
+            all_val_metric.append(val_metric)
 
             # select the best model based on all the validate metrics
             val_metric_indicator = [(metric, val_metric, True)]
             early_stop = early_stopping.step(val_metric_indicator, model)
 
-            if early_stop or (args.subset == "True" and epoch > 0):
+            if early_stop or (args.subset and epoch > 0):
                 logger.info(f'Early stopping at epoch {epoch + 1}')
                 break
 
@@ -312,8 +325,23 @@ def main():
         early_stopping.load_checkpoint(model)
 
         total_train_val_time = timeit.default_timer() - start_run
+
+        # DTU: at end of every run (after all epochs), print list containing all train losses 
+        logger.info('\n------------ DTU ------------\nRun {}\n'.format(run))
+        logger.info('\tall_train_losses: {}'.format(all_train_losses))
+        for n_metric, metric_name in enumerate(train_metrics[0].keys()):
+            logger.info('all_train_metrics({}) {}: {}'.format(n_metric, metric_name, all_train_metrics[n_metric]))
+        logger.info('\tall_val_metric: {}'.format(all_val_metric))
+        # Save in files
+        save_model_folder = f"./DTU_Test/data_plots/individual/{args.save_model_name}/"
+        os.makedirs(save_model_folder, exist_ok=True)
+        for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric], ['all_train_losses', 'all_train_metrics', 'all_val_metric']):
+            np.save(save_model_folder + data_name, data)
+
         logger.info(f'Total train & validation elapsed time (s): {total_train_val_time:.6f}')
         
+        
+
         # ========================================
         # ============== Final Test ==============
         # ========================================
