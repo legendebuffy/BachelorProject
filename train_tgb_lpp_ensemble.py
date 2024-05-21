@@ -285,17 +285,11 @@ def main():
             logger.info('all_train_metrics({}) {}: {}'.format(n_metric, metric_name, all_train_metrics[n_metric]))
         logger.info('\tall_val_metric: {}'.format(all_val_metric))
         logger.info('\tall_individual_losses: {}'.format(all_individual_losses))
-        
         # Save in files
-        save_model_folder = f"./DTU_Test/data_plots/{args.save_model_name}/"
+        save_model_folder = f"./DTU_Test/data_plots/ensemble/{args.save_model_name}/"
         os.makedirs(save_model_folder, exist_ok=True)
         for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric, all_individual_losses], ['all_train_losses', 'all_train_metrics', 'all_val_metric', 'all_individual_losses']):
             np.save(save_model_folder + data_name, data)
-        # torch.save(, f"{save_model_folder}ensemble.pth")
-
-        # load data
-        all_train_losses = np.load(save_model_folder + 'all_train_losses.npy', allow_pickle=True)
-
         
         # ========================================
         # ============== Final Test ==============
