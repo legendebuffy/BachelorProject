@@ -41,6 +41,7 @@ def main():
 
     # get arguments
     args = get_link_prediction_args(is_evaluation=False)
+    args.subset = args.subset == 'True' # Convert string to boolean
 
     # get data for training, validation and testing
     node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, dataset = \
@@ -182,7 +183,7 @@ def main():
             train_losses, train_metrics = [], []
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
-                if args.subset == 'True' and batch_idx >= 1:
+                if args.subset and batch_idx >= 1:
                     break
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], \
