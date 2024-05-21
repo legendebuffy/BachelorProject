@@ -48,7 +48,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
     parser.add_argument('--negative_sample_strategy', type=str, default='random', choices=['random', 'historical', 'inductive'],
                         help='strategy for the negative edge sampling')
-    parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
+    parser.add_argument('--load_best_configs', type=str, default="False", help='whether to load the best configurations')
     parser.add_argument('--seed', type=int, default=2023, help='random seed')
     parser.add_argument('--time_scale', type=str, default=None, help='Time Scale for discretization',
                         choices=['minutely', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'])
@@ -71,7 +71,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     # if args.model_name == 'EdgeBank':
     #     assert is_evaluation, 'EdgeBank is only applicable for evaluation!'
 
-    if args.load_best_configs:
+    if args.load_best_configs == "True":
         load_link_prediction_best_configs(args=args)
 
     return args

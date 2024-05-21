@@ -13,7 +13,7 @@ def main():
     print("*** Negative Sample Generation ***")
 
     # setting the required parameters
-    num_neg_e_per_pos = 12000 #11000 #10000 #20 #100
+    num_neg_e_per_pos = 100 #11000 #10000 #20 #100
     neg_sample_strategy = "hist_rnd" #"rnd"
     rnd_seed = 42
 
@@ -52,7 +52,7 @@ def main():
     # generate evaluation set
     partial_path = "./"
     # generate validation negative edge set
-    start_time = time.time()
+    # start_time = time.time()
     split_mode = "val"
     print(
         f"INFO: Start generating negative samples: {split_mode} --- {neg_sample_strategy}"
@@ -60,9 +60,9 @@ def main():
     neg_sampler.generate_negative_samples(
         data=data_splits[split_mode], split_mode=split_mode, partial_path=partial_path
     )
-    print(
-        f"INFO: End of negative samples generation. Elapsed Time (s): {time.time() - start_time: .4f}"
-    )
+    # print(
+    #     f"INFO: End of negative samples generation. Elapsed Time (s): {time.time() - start_time: .4f}"
+    # )
 
     # generate test negative edge set
     start_time = timeit.default_timer()
