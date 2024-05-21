@@ -39,7 +39,7 @@ from evaluation.tgb_evaluate_LPP import eval_LPP_TGB
 # DTU
 from models.Ensemble import Ensemble
 from models.Ensemble import LogisticRegressionModel
-
+from utils.DataLoader import Data
 
 def main():
 
@@ -76,7 +76,20 @@ def main():
 
     # load the validation negative samples
     dataset.load_val_ns()
-
+     
+    # generate the train_validation split of the data: needed for constructing the memory for EdgeBank
+    train_val_data = Data(src_node_ids=np.concatenate([train_data.src_node_ids, val_data.src_node_ids]),
+                          dst_node_ids=np.concatenate([train_data.dst_node_ids, val_data.dst_node_ids]),
+                          node_interact_times=np.concatenate([train_data.node_interact_times, val_data.node_interact_times]),
+                          edge_ids=np.concatenate([train_data.edge_ids, val_data.edge_ids]),
+                          labels=np.concatenate([train_data.labels, val_data.labels]))
+    
+    train_h_data = Data(src_node_ids=train_data.src_node_ids,
+                          dst_node_ids=train_data.dst_node_ids,
+                          node_interact_times=train_data.node_interact_times,
+                          edge_ids=train_data.edge_ids,
+                          labels=train_data.labels)
+    
     for run in range(args.num_runs):
         start_run = timeit.default_timer()
         set_random_seed(seed=args.seed+run)
@@ -119,6 +132,8 @@ def main():
 
             print("Building ensemble model...")
             for model_name in ensemble_models_list:
+                if model_name == 'EdgeBank':
+                    continue
                 if model_name == 'TGAT':
                     dynamic_backbone = TGAT(node_raw_features=node_raw_features, edge_raw_features=edge_raw_features, 
                                             neighbor_sampler=train_neighbor_sampler, time_feat_dim=args.time_feat_dim, 
@@ -160,7 +175,7 @@ def main():
 
 
             # Logistic regressor as the final layer
-            combiner = LogisticRegressionModel(input_dim=len(ensemble_models), output_dim=1)
+            combiner = LogisticRegressionModel(input_dim=len(ensemble_models_list), output_dim=1)
 
             # Ensemble model
             ensemble = Ensemble(ensemble_models, combiner, ensemble_models_list)
@@ -180,7 +195,7 @@ def main():
         # This script is for ensembling only
         else:
             raise ValueError(f"YOU ARE NOT ENSEMBLING, BRO??!"+
-                             f"\nargs.mode_name: {args.model_name}\nensemble_models_list: {ensemble_models_list}")
+                             f"\nargs.mode_name: {args.model_name}")
 
         
         save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
@@ -210,9 +225,18 @@ def main():
             train_losses, train_metrics = [], []
 
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
+
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
                 if args.subset and batch_idx > 2:
                     break
+
+                mem_id = 1 if (batch_idx == 0 and epoch == 0) else 0
+                history_data = Data(src_node_ids=train_data.src_node_ids[: train_data_indices[mem_id]],
+                    dst_node_ids=train_data.dst_node_ids[: train_data_indices[mem_id]],
+                    node_interact_times=train_data.node_interact_times[: train_data_indices[mem_id]],
+                    edge_ids=train_data.edge_ids[: train_data_indices[mem_id]],
+                    labels=train_data.labels[: train_data_indices[mem_id]])
+
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], \
                     train_data.node_interact_times[train_data_indices], train_data.edge_ids[train_data_indices]
@@ -220,16 +244,26 @@ def main():
                 _, batch_neg_dst_node_ids = train_neg_edge_sampler.sample(size=len(batch_src_node_ids))
                 batch_neg_src_node_ids = batch_src_node_ids
 
+                positive_edges = (batch_src_node_ids, batch_dst_node_ids)
+                negative_edges = (batch_neg_src_node_ids, batch_neg_dst_node_ids)
+
                 # Forward pass
                 kwargs = {'batch_src_node_ids': batch_src_node_ids, 
-                          'batch_dst_node_ids': batch_dst_node_ids, 
-                          'batch_node_interact_times': batch_node_interact_times,
-                          'batch_neg_node_interact_times': batch_node_interact_times,
-                          'num_neighbors': args.num_neighbors,
-                          'batch_neg_src_node_ids': batch_neg_src_node_ids,
-                          'batch_neg_dst_node_ids': batch_neg_dst_node_ids,
-                          'batch_edge_ids': batch_edge_ids,
-                          'time_gap': args.time_gap}
+                        'batch_dst_node_ids': batch_dst_node_ids, 
+                        'batch_node_interact_times': batch_node_interact_times,
+                        'batch_neg_node_interact_times': batch_node_interact_times,
+                        'num_neighbors': args.num_neighbors,
+                        'batch_neg_src_node_ids': batch_neg_src_node_ids,
+                        'batch_neg_dst_node_ids': batch_neg_dst_node_ids,
+                        'batch_edge_ids': batch_edge_ids,
+                        'time_gap': args.time_gap,
+                        'history_data':history_data,
+                        'positive_edges':positive_edges,
+                        'negative_edges':negative_edges,
+                        'edge_bank_memory_mode':args.edge_bank_memory_mode,
+                        'time_window_mode':args.time_window_mode,
+                        'test_ratio':args.test_ratio,
+                        'device': args.device}
                 loss, predictions, labels, individual_loss = ensemble.train_step(loss_func, optimizer, train_neighbor_sampler,  **kwargs)
 
                 train_metrics.append(get_link_prediction_metrics(predictions, labels))
@@ -245,7 +279,7 @@ def main():
 
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric = ensemble.eval_TGB(neighbor_sampler=full_neighbor_sampler, 
+            val_metric = ensemble.eval_TGB(device=args.device, edgebank_data=train_h_data, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                       split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
@@ -297,7 +331,7 @@ def main():
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric = ensemble.eval_TGB(neighbor_sampler=full_neighbor_sampler, 
+        test_metric = ensemble.eval_TGB(device=args.device, edgebank_data=train_val_data, neighbor_sampler=full_neighbor_sampler, 
                                    evaluate_idx_data_loader=test_idx_data_loader, evaluate_data=test_data,  
                                    negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                    split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,

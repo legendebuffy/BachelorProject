@@ -12,7 +12,7 @@ import argparse
 
 # internal imports
 from tgb.linkproppred.evaluate import Evaluator
-from modules.edgebank_predictor import EdgeBankPredictor
+from old_but_gold.modules.edgebank_predictor import EdgeBankPredictor
 from tgb.utils.utils import set_random_seed
 from tgb.linkproppred.dataset import LinkPropPredDataset
 from tgb.utils.utils import save_results
@@ -125,4 +125,7 @@ start_val = timeit.default_timer()
 logits = get_edgebank_logits()
 end_val = timeit.default_timer()
 
-print(len(logits))
+print(len(logits), len(logits[0]), type(logits),type(logits[0]))
+logits_numpy = np.array(logits)
+
+np.save('../edgebank_logits.npy', logits_numpy)

@@ -71,9 +71,9 @@ def query_pred_edge_batch(model_name: str, model: nn.Module,
 
 
 
-def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSampler, evaluate_idx_data_loader: DataLoader,
+def eval_LPP_TGB(with_logits, model_name: str, model: nn.Module, neighbor_sampler: NeighborSampler, evaluate_idx_data_loader: DataLoader,
                 evaluate_data: Data,  negative_sampler: object, evaluator: Evaluator, metric: str = 'mrr',
-                split_mode: str = 'test', k_value: int = 10, num_neighbors: int = 20, time_gap: int = 2000):
+                split_mode: str = 'test', k_value: int = 10, num_neighbors: int = 20, time_gap: int = 2000, subset='False'):
     """
     evaluate models on the link prediction task based on TGB NegativeSampler and Evaluator
     :param model_name: str, name of the model
@@ -91,6 +91,8 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
     :return:
     """
     perf_list = []
+    pos_logit_list = []
+    neg_logit_list = []
 
     if model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
         # evaluation phase use all the graph information
@@ -103,6 +105,8 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
         evaluate_losses, evaluate_metrics = [], []
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
+            if subset == 'True' and batch_idx > 1:
+                break
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                 evaluate_data.src_node_ids[evaluate_data_indices],  evaluate_data.dst_node_ids[evaluate_data_indices], \
                 evaluate_data.node_interact_times[evaluate_data_indices], evaluate_data.edge_ids[evaluate_data_indices]
@@ -115,6 +119,8 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
 
             
             for idx, neg_batch in enumerate(neg_batch_list):
+                if subset == 'True' and idx > 1:
+                    break
                 neg_batch = np.array(neg_batch) + 1  # due to the special data loading processing ...
                 batch_neg_src_node_ids = np.array([int(batch_src_node_ids[idx]) for _ in range(len(neg_batch))])
                 batch_neg_dst_node_ids = np.array(neg_batch)
@@ -136,10 +142,21 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
 
                 
                 # get positive and negative probabilities
-                positive_probabilities = model[1](input_1=batch_pos_src_node_embeddings, 
-                                                  input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1).sigmoid()
-                negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, 
-                                                  input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1).sigmoid()
+                pos_logits = model[1](input_1=batch_pos_src_node_embeddings, 
+                                                  input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1)
+                neg_logits = model[1](input_1=batch_neg_src_node_embeddings, 
+                                                  input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
+                if with_logits:
+                    pos_logit_list.append(pos_logits)
+                    neg_logit_list.append(neg_logits)
+
+                positive_probabilities = pos_logits.sigmoid()
+                negative_probabilities = neg_logits.sigmoid()
+
+                # positive_probabilities = model[1](input_1=batch_pos_src_node_embeddings, 
+                #                                   input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1).sigmoid()
+                # negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, 
+                #                                   input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1).sigmoid()
 
                 # compute MRR
                 input_dict = {
@@ -151,6 +168,8 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
             
     avg_perf_metric = float(np.mean(np.array(perf_list)))
 
-    return avg_perf_metric
+    if with_logits:
+        return avg_perf_metric, torch.cat(pos_logit_list), torch.cat(neg_logit_list)
+    return avg_perf_metric, [], []
 
 

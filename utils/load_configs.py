@@ -14,7 +14,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='tgbl-wiki',
                         choices=['tgbl-flight', 'tgbl-wiki', 'tgbl-review', 'tgbl-coin', 'tgbl-comment'])
     parser.add_argument('--batch_size', type=int, default=200, help='batch size')
-    parser.add_argument('--model_name', type=str, default='TGN_GraphMixer', help='name of the model, note that EdgeBank is only applicable for evaluation')
+    parser.add_argument('--model_name', type=str, default='DyRep_EdgeBank', help='ALWAYS EdgeBank LAST!!!')
                         #choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])
     # parser.add_argument('--gpu', type=int, default=0, help='ID of gpu to use')
     parser.add_argument('--num_neighbors', type=int, default=20, help='number of neighbors to sample for each node') 
@@ -29,7 +29,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--time_gap', type=int, default=2000, help='time gap for neighbors to compute node features')
     parser.add_argument('--time_feat_dim', type=int, default=100, help='dimension of the time embedding')
     parser.add_argument('--position_feat_dim', type=int, default=172, help='dimension of the position embedding')
-    parser.add_argument('--edge_bank_memory_mode', type=str, default='unlimited_memory', help='how memory of EdgeBank works',
+    parser.add_argument('--edge_bank_memory_mode', type=str, default='time_window_memory', help='how memory of EdgeBank works',
                         choices=['unlimited_memory', 'time_window_memory', 'repeat_threshold_memory'])
     parser.add_argument('--time_window_mode', type=str, default='fixed_proportion', help='how to select the time window size for time window memory',
                         choices=['fixed_proportion', 'repeat_interval'])
@@ -68,8 +68,8 @@ def get_link_prediction_args(is_evaluation: bool = False):
         parser.print_help()
         sys.exit()
 
-    if args.model_name == 'EdgeBank':
-        assert is_evaluation, 'EdgeBank is only applicable for evaluation!'
+    # if args.model_name == 'EdgeBank':
+    #     assert is_evaluation, 'EdgeBank is only applicable for evaluation!'
 
     if args.load_best_configs:
         load_link_prediction_best_configs(args=args)
