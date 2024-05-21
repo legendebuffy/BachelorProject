@@ -71,7 +71,7 @@ def query_pred_edge_batch(model_name: str, model: nn.Module,
 
 
 
-def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSampler, evaluate_idx_data_loader: DataLoader,
+def eval_LPP_TGB(with_logits, model_name: str, model: nn.Module, neighbor_sampler: NeighborSampler, evaluate_idx_data_loader: DataLoader,
                 evaluate_data: Data,  negative_sampler: object, evaluator: Evaluator, metric: str = 'mrr',
                 split_mode: str = 'test', k_value: int = 10, num_neighbors: int = 20, time_gap: int = 2000, subset='False'):
     """
@@ -146,8 +146,9 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
                                                   input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1)
                 neg_logits = model[1](input_1=batch_neg_src_node_embeddings, 
                                                   input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
-                pos_logit_list.append(pos_logits)
-                neg_logit_list.append(neg_logits)
+                if with_logits:
+                    pos_logit_list.append(pos_logits)
+                    neg_logit_list.append(neg_logits)
 
                 positive_probabilities = pos_logits.sigmoid()
                 negative_probabilities = neg_logits.sigmoid()
@@ -167,6 +168,6 @@ def eval_LPP_TGB(model_name: str, model: nn.Module, neighbor_sampler: NeighborSa
             
     avg_perf_metric = float(np.mean(np.array(perf_list)))
 
-    return avg_perf_metric, torch.cat(pos_logit_list), torch.cat(neg_logit_list)
-
-
+    if with_logits:
+        return avg_perf_metric, torch.cat(pos_logit_list), torch.cat(neg_logit_list)
+    return avg_perf_metric, [], []
