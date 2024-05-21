@@ -21,6 +21,7 @@ len_epoch = len(all_train_losses[0])
 fig, ax = plt.subplots(2,1, figsize=(12, 10))
 plt.tight_layout()
 plt.subplots_adjust(hspace=0.4)
+fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
 
 # Plot losses
 for model, name in enumerate(model_list):
