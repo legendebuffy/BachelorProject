@@ -87,9 +87,9 @@ def get_edgebank_logits(subset, data):
     dataset.load_val_ns()
 
     # testing ...
-    _, logits = ensemble_test(data, val_mask, neg_sampler, split_mode='val', subset=subset, edgebank=edgebank, metric=metric)
+    performance, logits = ensemble_test(data, val_mask, neg_sampler, split_mode='val', subset=subset, edgebank=edgebank, metric=metric)
 
-    return logits
+    return performance, logits
 
 def get_args_edgebank():
     parser = argparse.ArgumentParser('*** TGB: EdgeBank ***')
@@ -101,6 +101,7 @@ def get_args_edgebank():
     parser.add_argument('--mem_mode', type=str, help='Memory mode', default='fixed_time_window', choices=['unlimited', 'fixed_time_window'])
     parser.add_argument('--time_window_ratio', type=float, help='Test window ratio', default=0.15)
     parser.add_argument('--bs', type=int, help='Batch size', default=200)
+    parser.add_argument('--run_name', type=str, help='run_name', default="YAHNI")
 
     try:
         args_e = parser.parse_args()
@@ -123,10 +124,11 @@ SUBSET = args.subset
 #run_name = args.run
 
 start_val = timeit.default_timer()
-logits = get_edgebank_logits(subset=SUBSET, data=DATA)
+performance, logits = get_edgebank_logits(subset=SUBSET, data=DATA)
 end_val = timeit.default_timer()
 
 print(len(logits), len(logits[0]), type(logits),type(logits[0]))
+print(f"\nRESULTS: {performance}")
 
 folder_name = f"./saved_results/EdgeBank/{args.data}/{args.run_name}/"
 os.makedirs(folder_name, exist_ok=True)
