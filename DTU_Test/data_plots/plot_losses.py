@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 
 # Import npy file
-folder_name = 'DTU_Test/data_plots/individual/DyGFormer/tgbl-wiki'
+folder_name = 'DTU_Test/data_plots/individual/DyGFormer/tgbl-wiki/run1'
 
 all_train_losses = np.load(f'{folder_name}/all_train_losses.npy')
 all_train_metrics = np.load(f'{folder_name}/all_train_metrics.npy')
@@ -14,10 +14,11 @@ bool_plot_ensemble = 'all_individual_losses.npy' in os.listdir(folder_name)
 
 if bool_plot_ensemble:
     all_individual_losses = np.load(f'{folder_name}/all_individual_losses.npy')
-    model_list = folder_name.split('/')[-1].split('-')[0].split('_')[:-1]
+    model_list = folder_name.split('/')[-2].split('_')
     num_models = len(model_list)
 else:
     model_name = folder_name.split('/')[-2]
+data_name = folder_name.split('/')[-1]
 num_epochs = len(all_train_losses)
 len_epoch = len(all_train_losses[0])
 
@@ -33,7 +34,7 @@ if bool_plot_ensemble:
         ax[0].plot(model_loss, label=f'{name}')
 
 ensemble_loss = all_train_losses.flatten()
-ax[0].plot(ensemble_loss, label='Ensemble', linestyle='--')
+ax[0].plot(ensemble_loss, label='Ensemble', alpha=0.6 if bool_plot_ensemble else None)
 ax[0].set_xticks(np.arange(1, num_epochs*len_epoch+1, len_epoch))
 ax[0].set_xticklabels(np.arange(1, num_epochs+1))
 ax[0].set_xlim(0, num_epochs*len_epoch)
@@ -41,9 +42,9 @@ ax[0].set_ylim(0)
 ax[0].grid()
 ax[0].legend()
 if bool_plot_ensemble:
-    ax[0].set_title(f'Ensemble losses ({"+".join(model_list)})')
+    ax[0].set_title(f'Ensemble losses ({"+".join(model_list)}), {data_name}')
 else:
-    ax[0].set_title(f'Loss, {model_name}')
+    ax[0].set_title(f'Loss, {model_name}, {data_name}')
 ax[0].set_xlabel('Epoch')
 ax[0].set_ylabel('Loss')
 
