@@ -60,6 +60,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     # DTU: To save logits for simple ensemble
     parser.add_argument('--logits', type=str, default="False", help='to save logits')
     parser.add_argument('--subset', type=str, default="False", help='to save subset of data')
+    parser.add_argument('--run_name', type=str, default='run_name', help='Name of the run')
 
     try:
         args = parser.parse_args()

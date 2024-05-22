@@ -320,7 +320,7 @@ def main():
         logger.info('\tall_val_metric: {}'.format(all_val_metric))
         logger.info('\tall_individual_losses: {}'.format(all_individual_losses))
         # Save in files
-        save_model_folder = f"./DTU_Test/data_plots/ensemble/{args.model_name}/{args.dataset_name}/"
+        save_model_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.run_name}/"
         os.makedirs(save_model_folder, exist_ok=True)
         for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric, all_individual_losses], ['all_train_losses', 'all_train_metrics', 'all_val_metric', 'all_individual_losses']):
             np.save(save_model_folder + data_name, data)

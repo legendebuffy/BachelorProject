@@ -334,7 +334,7 @@ def main():
             logger.info('all_train_metrics({}) {}: {}'.format(n_metric, metric_name, all_train_metrics[n_metric]))
         logger.info('\tall_val_metric: {}'.format(all_val_metric))
         # Save in files
-        save_model_folder = f"./DTU_Test/data_plots/individual/{args.model_name}/{args.dataset_name}/"
+        save_model_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.run_name}/"
         os.makedirs(save_model_folder, exist_ok=True)
         for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric], ['all_train_losses', 'all_train_metrics', 'all_val_metric']):
             np.save(save_model_folder + data_name, data)
@@ -358,8 +358,9 @@ def main():
         if args.logits == "True":
             logits = torch.cat([pos_test_logits, neg_test_logits], dim=0)
             # create dir if not exists
-            os.makedirs(f"./saved_logits/{args.model_name}/{args.dataset_name}/", exist_ok=True)
-            torch.save(logits, f"./saved_logits/{args.model_name}/{args.dataset_name}/{args.model_name}_logits.pth")
+            folder_name = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.run_name}/"
+            os.makedirs(f"{folder_name}", exist_ok=True)
+            torch.save(logits, f"{folder_name}{args.model_name}_{args.dataset_name}_logits.pth")
 
         test_time = timeit.default_timer() - start_test
         logger.info(f'Test elapsed time (s): {test_time:.4f}')
