@@ -128,5 +128,6 @@ end_val = timeit.default_timer()
 
 print(len(logits), len(logits[0]), type(logits),type(logits[0]))
 
-os.makedirs(f"./saved_logits/EdgeBank/{args.data}/", exist_ok=True)
-torch.save(logits, f"./saved_logits/EdgeBank/{args.data}/EdgeBank_logits.pth")
+folder_name = f"./saved_results/EdgeBank/{args.data}/{args.run_name}/"
+os.makedirs(folder_name, exist_ok=True)
+torch.save(logits, f"{folder_name}EdgeBank_{args.data}_logits.pth")
