@@ -123,3 +123,9 @@ saved_models/*
 saved_results/*
 arXiv/*
 cc_env.sh
+tgb_env/
+hpc_runs/
+hpc_run.sh
+DTU_Test/data_plots/ensemble/
+DTU_Test/data_plots/individual/
+saved_logits/
