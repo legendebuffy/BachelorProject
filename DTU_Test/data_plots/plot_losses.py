@@ -14,11 +14,11 @@ bool_plot_ensemble = 'all_individual_losses.npy' in os.listdir(folder_name)
 
 if bool_plot_ensemble:
     all_individual_losses = np.load(f'{folder_name}/all_individual_losses.npy')
-    model_list = folder_name.split('/')[-2].split('_')
+    model_list = folder_name.split('/')[-3].split('_')
     num_models = len(model_list)
 else:
-    model_name = folder_name.split('/')[-2]
-data_name = folder_name.split('/')[-1]
+    model_name = folder_name.split('/')[-3]
+data_name = folder_name.split('/')[-2]
 num_epochs = len(all_train_losses)
 len_epoch = len(all_train_losses[0])
 
@@ -31,18 +31,18 @@ fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
 if bool_plot_ensemble:
     for model, name in enumerate(model_list):
         model_loss = all_individual_losses[:, :, model].flatten()
-        ax[0].plot(model_loss, label=f'{name}')
+        ax[0].plot(model_loss, label=f'{name}', alpha=0.9)
 
 ensemble_loss = all_train_losses.flatten()
-ax[0].plot(ensemble_loss, label='Ensemble', alpha=0.6 if bool_plot_ensemble else None)
-ax[0].set_xticks(np.arange(1, num_epochs*len_epoch+1, len_epoch))
+ax[0].plot(ensemble_loss, label='Ensemble', alpha=0.5 if bool_plot_ensemble else None)
+ax[0].set_xticks(np.arange(0, num_epochs*len_epoch, len_epoch))
 ax[0].set_xticklabels(np.arange(1, num_epochs+1))
 ax[0].set_xlim(0, num_epochs*len_epoch)
 ax[0].set_ylim(0)
 ax[0].grid()
-ax[0].legend()
 if bool_plot_ensemble:
     ax[0].set_title(f'Ensemble losses ({"+".join(model_list)}), {data_name}')
+    ax[0].legend()
 else:
     ax[0].set_title(f'Loss, {model_name}, {data_name}')
 ax[0].set_xlabel('Epoch')
@@ -55,7 +55,8 @@ ax[1].set_xticks(np.arange(0, num_epochs, 1))
 ax[1].set_xticklabels(np.arange(1, num_epochs+1))
 ax[1].set_xlim(0, num_epochs-1)
 ax[1].grid()
-ax[1].legend()
+if bool_plot_ensemble:
+    ax[1].legend()
 ax[1].set_title(f'Validation MRR, {"ensemble" if bool_plot_ensemble else model_name}')
 ax[1].set_xlabel('Epoch')
 ax[1].set_ylabel('MRR')
