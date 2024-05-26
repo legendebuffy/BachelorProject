@@ -29,7 +29,7 @@ from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, cr
 from utils.utils import get_neighbor_sampler, NegativeEdgeSampler
 from evaluate_models_utils import evaluate_model_link_prediction
 from utils.metrics import get_link_prediction_metrics
-from utils.DataLoader import get_idx_data_loader, get_link_pred_data_TRANS_TGB #get_link_prediction_data
+from utils.DataLoader import get_idx_data_loader, get_link_prediction_data, get_link_pred_data_TRANS_TGB
 from utils.EarlyStopping import EarlyStopping
 from utils.load_configs import get_link_prediction_args
 
@@ -148,7 +148,7 @@ def main():
         optimizer = create_optimizer(model=model, optimizer_name=args.optimizer, 
                                     learning_rate=args.learning_rate, weight_decay=args.weight_decay)
 
-        model = convert_to_gpu(model, device=args.device) # YAHNI args.device
+        model = convert_to_gpu(model, device=args.device)
 
         save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
         shutil.rmtree(save_model_folder, ignore_errors=True)
@@ -191,7 +191,7 @@ def main():
 
                 _, batch_neg_dst_node_ids = train_neg_edge_sampler.sample(size=len(batch_src_node_ids))
                 batch_neg_src_node_ids = batch_src_node_ids
-                torch.cuda.empty_cache()
+                
                 # we need to compute for positive and negative edges respectively, because the new sampling strategy (for evaluation) allows the negative source nodes to be
                 # different from the source nodes, this is different from previous works that just replace destination nodes with negative destination nodes
                 if args.model_name in ['TGAT', 'CAWN', 'TCL']:

@@ -577,7 +577,7 @@ def csv_to_pd_data_sc(
             idx += 1
 
     # Normalize by log 2 for stablecoin
-    w_list = np.log2(w_list + 1)  # Offset by 1 to handle log(1) case for w=0 originally
+    w_list = np.log2(w_list)
 
     return (
         pd.DataFrame({
@@ -612,15 +612,8 @@ def csv_to_pd_data_rw(fname: str) -> pd.DataFrame:
             node_frequency[src] += 1
             node_frequency[dst] += 1
 
-    # Determine the least frequent nodes to include
-    bot_nodes = set()
-    nodes_removed = 0
-    # start from the least frequent nodes
-    for node, count in reversed(node_frequency.most_common()):
-        if num_nodes - nodes_removed <= max_nodes:
-            break
-        bot_nodes.add(node)
-        nodes_removed += 1
+    # Determine the most frequent nodes to keep
+    top_nodes = set(node for node, _ in node_frequency.most_common(max_nodes))
 
     # Reinitialize necessary data structures
     u_list = []
@@ -640,10 +633,8 @@ def csv_to_pd_data_rw(fname: str) -> pd.DataFrame:
         csv_reader = csv.reader(csv_file, delimiter=",")
         next(csv_reader)  # Skip header
         for row in tqdm(csv_reader):
-            # if idx >= num_lines:
-            #     break
             src, dst = row[1], row[2]
-            if src not in bot_nodes and dst not in bot_nodes:
+            if src in top_nodes and dst in top_nodes:
                 ts = int(row[0])
                 w = float(row[3]) if float(row[3]) != 0 else 1
 
