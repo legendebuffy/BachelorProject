@@ -302,7 +302,7 @@ def main():
 
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric, _ ,_ = eval_LPP_TGB(with_logits='False', model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
+            val_metric, _, _, _, _ = eval_LPP_TGB(mode="val", with_logits='False', model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                       split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
@@ -358,7 +358,7 @@ def main():
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric, _, _ = eval_LPP_TGB(with_logits='False', model_name=args.model_name, model=model, 
+        test_metric, _, _, test_average_precision, test_roc_auc = eval_LPP_TGB(mode="test",with_logits='False', model_name=args.model_name, model=model, 
                                     neighbor_sampler=full_neighbor_sampler,evaluate_idx_data_loader=test_idx_data_loader, 
                                     evaluate_data=test_data, negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                    split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
@@ -378,6 +378,8 @@ def main():
         test_time = timeit.default_timer() - start_test
         logger.info(f'Test elapsed time (s): {test_time:.4f}')
         logger.info(f'Test: {metric}: {test_metric: .4f}')
+        logger.info(f'Test: average precision: {test_average_precision: .4f}')
+        logger.info(f'Test: ROC AUC: {test_roc_auc: .4f}')
 
         # avoid the overlap of logs
         if run < args.num_runs - 1:
