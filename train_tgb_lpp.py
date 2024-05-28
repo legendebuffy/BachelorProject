@@ -167,6 +167,8 @@ def main():
         all_train_losses = []
         all_train_metrics = [[] for _ in range(2)]
         all_val_metric = []
+        train_pos_logits = []
+        train_neg_logits = []
 
         val_perf_list = []
         for epoch in range(args.num_epochs):
@@ -267,15 +269,22 @@ def main():
                 else:
                     raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get positive and negative probabilities, shape (batch_size, )
-                positive_probabilities = model[1](input_1=batch_src_node_embeddings, 
-                                                  input_2=batch_dst_node_embeddings).squeeze(dim=-1).sigmoid()
-                negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, 
-                                                  input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1).sigmoid()
+                positive_logits = model[1](input_1=batch_src_node_embeddings, 
+                                                  input_2=batch_dst_node_embeddings).squeeze(dim=-1)
+                negative_logits = model[1](input_1=batch_neg_src_node_embeddings, 
+                                                  input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
+                train_pos_logits.append(positive_logits)
+                train_neg_logits.append(negative_logits)
+
+                positive_probabilities = positive_logits.sigmoid()
+                negative_probabilities = negative_logits.sigmoid()
 
                 predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
+                predicts_logits = torch.cat([positive_logits, negative_logits], dim=0)
+
                 labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
 
-                loss = loss_func(input=predicts, target=labels)
+                loss = loss_func(input=predicts_logits, target=labels)
 
                 train_losses.append(loss.item())
 
@@ -293,7 +302,7 @@ def main():
 
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric,_,_ = eval_LPP_TGB(with_logits='False', model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
+            val_metric, _ ,_ = eval_LPP_TGB(with_logits='False', model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                       split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
@@ -349,14 +358,18 @@ def main():
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric, pos_test_logits, neg_test_logits = eval_LPP_TGB(with_logits=args.logits, model_name=args.model_name, model=model, 
+        test_metric, _, _ = eval_LPP_TGB(with_logits='False', model_name=args.model_name, model=model, 
                                     neighbor_sampler=full_neighbor_sampler,evaluate_idx_data_loader=test_idx_data_loader, 
                                     evaluate_data=test_data, negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                    split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
                                    subset=args.subset)
         # To save logits for simple ensemble
         if args.logits == "True":
-            logits = torch.cat([pos_test_logits, neg_test_logits], dim=0)
+            #logits = torch.cat([pos_test_logits, neg_test_logits], dim=0)
+            train_pos_logits = torch.cat(train_pos_logits)
+            train_neg_logits = torch.cat(train_neg_logits)
+
+            logits = torch.cat([train_pos_logits, train_neg_logits], dim=0)
             # create dir if not exists
             folder_name = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.run_name}/"
             os.makedirs(f"{folder_name}", exist_ok=True)
