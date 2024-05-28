@@ -40,7 +40,7 @@ ax[0].plot(np.arange(0, num_epochs*len_epoch, len_epoch), ensemble_loss_epoch, l
 ax[0].set_xticks(np.arange(0, num_epochs*len_epoch, len_epoch))
 ax[0].set_xticklabels(np.arange(1, num_epochs+1))
 ax[0].set_xlim(0, num_epochs*len_epoch)
-ax[0].set_ylim(0, max(1.1*ensemble_loss.max(), 1.1*max([all_individual_losses[:, :, model].max() for model in range(num_models)])))
+ax[0].set_ylim(0, max(1.1*ensemble_loss.max(), (0 if not bool_plot_ensemble else 1.1*max([all_individual_losses[:, :, model].max() for model in range(num_models)]))))
 ax[0].grid()
 if bool_plot_ensemble:
     ax[0].set_title(f'Ensemble losses ({"+".join(model_list)}), {data_name}')
