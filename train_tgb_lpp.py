@@ -29,7 +29,7 @@ from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, cr
 from utils.utils import get_neighbor_sampler, NegativeEdgeSampler
 from evaluate_models_utils import evaluate_model_link_prediction
 from utils.metrics import get_link_prediction_metrics
-from utils.DataLoader import get_idx_data_loader, get_link_pred_data_TRANS_TGB #get_link_prediction_data
+from utils.DataLoader import get_idx_data_loader, get_link_prediction_data, get_link_pred_data_TRANS_TGB
 from utils.EarlyStopping import EarlyStopping
 from utils.load_configs import get_link_prediction_args
 
@@ -59,9 +59,9 @@ def main():
     train_neg_edge_sampler = NegativeEdgeSampler(src_node_ids=train_data.src_node_ids, dst_node_ids=train_data.dst_node_ids)
 
     # get data loaders
-    train_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(train_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
-    val_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(val_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
-    test_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(test_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
+    train_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(train_data.src_node_ids))), batch_size=args.batch_size, shuffle=False, train_mode='train')
+    val_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(val_data.src_node_ids))), batch_size=args.batch_size, shuffle=False, train_mode='val')
+    test_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(test_data.src_node_ids))), batch_size=args.batch_size, shuffle=False, train_mode='test')
 
     val_metric_all_runs, test_metric_all_runs = [], []
 
@@ -148,7 +148,7 @@ def main():
         optimizer = create_optimizer(model=model, optimizer_name=args.optimizer, 
                                     learning_rate=args.learning_rate, weight_decay=args.weight_decay)
 
-        model = convert_to_gpu(model, device=args.device) # YAHNI args.device
+        model = convert_to_gpu(model, device=args.device)
 
         save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
         shutil.rmtree(save_model_folder, ignore_errors=True)
@@ -167,6 +167,8 @@ def main():
         all_train_losses = []
         all_train_metrics = [[] for _ in range(2)]
         all_val_metric = []
+        train_pos_logits = []
+        train_neg_logits = []
 
         val_perf_list = []
         for epoch in range(args.num_epochs):
@@ -191,7 +193,7 @@ def main():
 
                 _, batch_neg_dst_node_ids = train_neg_edge_sampler.sample(size=len(batch_src_node_ids))
                 batch_neg_src_node_ids = batch_src_node_ids
-                torch.cuda.empty_cache()
+                
                 # we need to compute for positive and negative edges respectively, because the new sampling strategy (for evaluation) allows the negative source nodes to be
                 # different from the source nodes, this is different from previous works that just replace destination nodes with negative destination nodes
                 if args.model_name in ['TGAT', 'CAWN', 'TCL']:
@@ -267,15 +269,22 @@ def main():
                 else:
                     raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get positive and negative probabilities, shape (batch_size, )
-                positive_probabilities = model[1](input_1=batch_src_node_embeddings, 
-                                                  input_2=batch_dst_node_embeddings).squeeze(dim=-1).sigmoid()
-                negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, 
-                                                  input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1).sigmoid()
+                positive_logits = model[1](input_1=batch_src_node_embeddings, 
+                                                  input_2=batch_dst_node_embeddings).squeeze(dim=-1)
+                negative_logits = model[1](input_1=batch_neg_src_node_embeddings, 
+                                                  input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
+                train_pos_logits.append(positive_logits)
+                train_neg_logits.append(negative_logits)
+
+                positive_probabilities = positive_logits.sigmoid()
+                negative_probabilities = negative_logits.sigmoid()
 
                 predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
+                predicts_logits = torch.cat([positive_logits, negative_logits], dim=0)
+
                 labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
 
-                loss = loss_func(input=predicts, target=labels)
+                loss = loss_func(input=predicts_logits, target=labels)
 
                 train_losses.append(loss.item())
 
@@ -293,7 +302,7 @@ def main():
 
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric,_,_ = eval_LPP_TGB(with_logits='False', model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
+            val_metric, _, _, _, _ = eval_LPP_TGB(mode="val", with_logits='False', model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                       split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
@@ -349,14 +358,18 @@ def main():
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric, pos_test_logits, neg_test_logits = eval_LPP_TGB(with_logits=args.logits, model_name=args.model_name, model=model, 
+        test_metric, _, _, test_average_precision, test_roc_auc = eval_LPP_TGB(mode="test",with_logits='False', model_name=args.model_name, model=model, 
                                     neighbor_sampler=full_neighbor_sampler,evaluate_idx_data_loader=test_idx_data_loader, 
                                     evaluate_data=test_data, negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                    split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
                                    subset=args.subset)
         # To save logits for simple ensemble
         if args.logits == "True":
-            logits = torch.cat([pos_test_logits, neg_test_logits], dim=0)
+            #logits = torch.cat([pos_test_logits, neg_test_logits], dim=0)
+            train_pos_logits = torch.cat(train_pos_logits)
+            train_neg_logits = torch.cat(train_neg_logits)
+
+            logits = torch.cat([train_pos_logits, train_neg_logits], dim=0)
             # create dir if not exists
             folder_name = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.run_name}/"
             os.makedirs(f"{folder_name}", exist_ok=True)
@@ -365,6 +378,8 @@ def main():
         test_time = timeit.default_timer() - start_test
         logger.info(f'Test elapsed time (s): {test_time:.4f}')
         logger.info(f'Test: {metric}: {test_metric: .4f}')
+        logger.info(f'Test: average precision: {test_average_precision: .4f}')
+        logger.info(f'Test: ROC AUC: {test_roc_auc: .4f}')
 
         # avoid the overlap of logs
         if run < args.num_runs - 1:
