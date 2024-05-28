@@ -29,22 +29,24 @@ fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
 
 # Plot losses
 if bool_plot_ensemble:
-    for model, name in enumerate(model_list):
+    for model, name in enumerate(sorted(model_list)):
         model_loss = all_individual_losses[:, :, model].flatten()
         ax[0].plot(model_loss, label=f'{name}', alpha=0.9)
 
 ensemble_loss = all_train_losses.flatten()
-ax[0].plot(ensemble_loss, label='Ensemble', alpha=0.5 if bool_plot_ensemble else None)
+ax[0].plot(ensemble_loss, label=('ensemble ' if bool_plot_ensemble else '')+'loss (per batch)', alpha=0.5)
+ensemble_loss_epoch = ensemble_loss.reshape(num_epochs, len_epoch).mean(axis=1)
+ax[0].plot(np.arange(0, num_epochs*len_epoch, len_epoch), ensemble_loss_epoch, label=('ensemble ' if bool_plot_ensemble else '')+'loss (per epoch)', alpha=0.95)
 ax[0].set_xticks(np.arange(0, num_epochs*len_epoch, len_epoch))
 ax[0].set_xticklabels(np.arange(1, num_epochs+1))
 ax[0].set_xlim(0, num_epochs*len_epoch)
-ax[0].set_ylim(0)
+ax[0].set_ylim(0, max(1.1*ensemble_loss.max(), 1.1*max([all_individual_losses[:, :, model].max() for model in range(num_models)])))
 ax[0].grid()
 if bool_plot_ensemble:
     ax[0].set_title(f'Ensemble losses ({"+".join(model_list)}), {data_name}')
-    ax[0].legend()
 else:
     ax[0].set_title(f'Loss, {model_name}, {data_name}')
+ax[0].legend()
 ax[0].set_xlabel('Epoch')
 ax[0].set_ylabel('Loss')
 
@@ -54,6 +56,7 @@ ax[1].plot(mrr, label='MRR')
 ax[1].set_xticks(np.arange(0, num_epochs, 1))
 ax[1].set_xticklabels(np.arange(1, num_epochs+1))
 ax[1].set_xlim(0, num_epochs-1)
+ax[1].set_ylim(0, 1.1*mrr.max())
 ax[1].grid()
 if bool_plot_ensemble:
     ax[1].legend()
