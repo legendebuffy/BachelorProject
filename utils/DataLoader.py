@@ -32,7 +32,7 @@ class CustomizedDataset(Dataset):
         return len(self.indices_list)
 
 
-def get_idx_data_loader(indices_list: list, batch_size: int, shuffle: bool):
+def get_idx_data_loader(indices_list: list, batch_size: int, shuffle: bool, train_mode='train'):
     """
     get data loader that iterates over indices
     :param indices_list: list, list of indices
@@ -42,7 +42,13 @@ def get_idx_data_loader(indices_list: list, batch_size: int, shuffle: bool):
     """
     dataset = CustomizedDataset(indices_list=indices_list)
 
-    data_loader = DataLoader(dataset=dataset,
+    if train_mode == 'train':
+        data_loader = DataLoader(dataset=dataset,
+                                 batch_size=batch_size,
+                                 shuffle=shuffle,
+                                 drop_last=True)
+    else:
+        data_loader = DataLoader(dataset=dataset,
                              batch_size=batch_size,
                              shuffle=shuffle,
                              drop_last=False)

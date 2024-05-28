@@ -598,22 +598,19 @@ functions for review
 """
 
 def csv_to_pd_data_rw(fname: str) -> pd.DataFrame:
-    num_nodes = 352637
-    max_nodes = 4000
-    node_frequency = Counter()
+    max_edges = 100000  # Number of edges to randomly sample
     feat_size = 1
 
-    # First pass to count node frequencies
-    with open(fname, "r") as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=",")
-        next(csv_reader)  # Skip header
-        for row in csv_reader:
-            src, dst = row[1], row[2]
-            node_frequency[src] += 1
-            node_frequency[dst] += 1
+    df = pd.read_csv(fname, skiprows=1, header=None)
 
-    # Determine the most frequent nodes to keep
-    top_nodes = set(node for node, _ in node_frequency.most_common(max_nodes))
+    # Randomly sample edges
+    sampled_edges = df.sample(n=max_edges, random_state=1)
+    
+    # Sort according to timestamp
+    sampled_edges = sampled_edges.sort_values(by=0)
+
+    # Reset index
+    sampled_edges = sampled_edges.reset_index(drop=True)
 
     # Reinitialize necessary data structures
     u_list = []
@@ -629,34 +626,33 @@ def csv_to_pd_data_rw(fname: str) -> pd.DataFrame:
     idx = 0
 
     # Second pass to construct the dataset with the filtered nodes
-    with open(fname, "r") as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=",")
-        next(csv_reader)  # Skip header
-        for row in tqdm(csv_reader):
-            src, dst = row[1], row[2]
-            if src in top_nodes and dst in top_nodes:
-                ts = int(row[0])
-                w = float(row[3]) if float(row[3]) != 0 else 1
+    for idx, row in tqdm(sampled_edges.iterrows(), total=sampled_edges.shape[0]):
+        src, dst = row[1], row[2]
+        ts = int(row[0])
 
-                if src not in node_ids:
-                    node_ids[src] = unique_id
-                    unique_id += 1
-                if dst not in node_ids:
-                    node_ids[dst] = unique_id
-                    unique_id += 1
+        if src not in node_ids:
+            node_ids[src] = unique_id
+            unique_id += 1
+        if dst not in node_ids:
+            node_ids[dst] = unique_id
+            unique_id += 1
 
-                u = node_ids[src]
-                i = node_ids[dst]
-                u_list.append(u)
-                i_list.append(i)
-                ts_list.append(ts)
-                idx_list.append(idx + 1)  # Keeping 1-based index for compatibility
-                w_list.append(w)
-                label_list.append(0)
-                feat_l.append(np.zeros(feat_size))
-                idx += 1
+        w = float(row[3])
+        if w == 0:
+            w = 1
 
-    w_list = np.log2(np.array(w_list) + 1)  # Offset by 1 to handle log(1) case for w=0 originally
+        u = node_ids[src]
+        i = node_ids[dst]
+        u_list.append(u)
+        i_list.append(i)
+        ts_list.append(ts)
+        idx_list.append(idx + 1)  # Keeping 1-based index for compatibility
+        w_list.append(w)
+        label_list.append(0)
+        feat_l.append(np.zeros(feat_size))
+        idx += 1
+
+    w_list = np.log2(np.array(w_list)) 
 
     return (
         pd.DataFrame({
@@ -715,11 +711,6 @@ def csv_to_pd_data(
     feat_size = 16
     max_edges = 100000  # Number of edges to randomly sample
 
-    # Temporary storage for reading all edges
-    all_edges = []
-    node_ids = {}
-    unique_id = 0
-
     df = pd.read_csv(fname, skiprows=1, header=None)
 
     # Randomly sample edges
@@ -746,7 +737,6 @@ def csv_to_pd_data(
     # Process the sampled DataFrame
     for idx, row in tqdm(sampled_edges.iterrows(), total=sampled_edges.shape[0]):
         src, dst = row[1], row[2]
-
 
         ts = row[0]
         if ts_format is None:
