@@ -598,19 +598,18 @@ functions for review
 """
 
 def csv_to_pd_data_rw(fname: str) -> pd.DataFrame:
-    max_edges = 100000  # Number of edges to randomly sample
+    N_nodes = 3500
     feat_size = 1
+    random.seed(1)
 
     df = pd.read_csv(fname, skiprows=1, header=None)
 
-    # Randomly sample edges
-    sampled_edges = df.sample(n=max_edges, random_state=1)
-    
-    # Sort according to timestamp
-    sampled_edges = sampled_edges.sort_values(by=0)
+    # Combine unique nodes from source and destination columns
+    unique_nodes = pd.Series(pd.concat([df[1], df[2]])).unique()
+    sampled_nodes = set(random.sample(list(unique_nodes), N_nodes))
 
-    # Reset index
-    sampled_edges = sampled_edges.reset_index(drop=True)
+    # Filter edges where either source or destination is in the sampled nodes
+    filtered_edges = df[(df[1].isin(sampled_nodes)) | (df[2].isin(sampled_nodes))]
 
     # Reinitialize necessary data structures
     u_list = []
@@ -626,31 +625,33 @@ def csv_to_pd_data_rw(fname: str) -> pd.DataFrame:
     idx = 0
 
     # Second pass to construct the dataset with the filtered nodes
-    for idx, row in tqdm(sampled_edges.iterrows(), total=sampled_edges.shape[0]):
+    for idx, row in tqdm(filtered_edges.iterrows(), total=filtered_edges.shape[0]):
         src, dst = row[1], row[2]
         ts = int(row[0])
 
-        if src not in node_ids:
-            node_ids[src] = unique_id
-            unique_id += 1
-        if dst not in node_ids:
-            node_ids[dst] = unique_id
-            unique_id += 1
+        if src in sampled_nodes or dst in sampled_nodes:
 
-        w = float(row[3])
-        if w == 0:
-            w = 1
+            if src not in node_ids:
+                node_ids[src] = unique_id
+                unique_id += 1
+            if dst not in node_ids:
+                node_ids[dst] = unique_id
+                unique_id += 1
 
-        u = node_ids[src]
-        i = node_ids[dst]
-        u_list.append(u)
-        i_list.append(i)
-        ts_list.append(ts)
-        idx_list.append(idx + 1)  # Keeping 1-based index for compatibility
-        w_list.append(w)
-        label_list.append(0)
-        feat_l.append(np.zeros(feat_size))
-        idx += 1
+            w = float(row[3])
+            if w == 0:
+                w = 1
+
+            u = node_ids[src]
+            i = node_ids[dst]
+            u_list.append(u)
+            i_list.append(i)
+            ts_list.append(ts)
+            idx_list.append(idx + 1)  # Keeping 1-based index for compatibility
+            w_list.append(w)
+            label_list.append(0)
+            feat_l.append(np.zeros(feat_size))
+            idx += 1
 
     w_list = np.log2(np.array(w_list)) 
 
