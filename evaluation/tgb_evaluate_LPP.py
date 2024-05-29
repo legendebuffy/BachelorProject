@@ -71,7 +71,7 @@ def query_pred_edge_batch(model_name: str, model: nn.Module,
 
 
 
-def eval_LPP_TGB(mode, with_logits, model_name: str, model: nn.Module, neighbor_sampler: NeighborSampler, evaluate_idx_data_loader: DataLoader,
+def eval_LPP_TGB(auc, with_logits, model_name: str, model: nn.Module, neighbor_sampler: NeighborSampler, evaluate_idx_data_loader: DataLoader,
                 evaluate_data: Data,  negative_sampler: object, evaluator: Evaluator, metric: str = 'mrr',
                 split_mode: str = 'test', k_value: int = 10, num_neighbors: int = 20, time_gap: int = 2000, subset=False):
     """
@@ -158,7 +158,7 @@ def eval_LPP_TGB(mode, with_logits, model_name: str, model: nn.Module, neighbor_
                     batch_logits = torch.cat([pos_logits, neg_logits], dim=0)
                     logits_list.append(batch_logits)
 
-                if mode == "test":
+                if auc == "True":
                     predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
                     labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
                     test_metrics.append(get_link_prediction_metrics(predicts=predicts, labels=labels))
@@ -172,16 +172,16 @@ def eval_LPP_TGB(mode, with_logits, model_name: str, model: nn.Module, neighbor_
                 perf_list.append(evaluator.eval(input_dict)[metric])
     avg_perf_metric = float(np.mean(np.array(perf_list)))
 
-    if mode == "test":
-        average_precision = np.mean([test_metric['average_precision'] for test_metric in test_metrics])
+    if auc == "True":
+        pr_auc = np.mean([test_metric['pr_auc'] for test_metric in test_metrics])
         roc_auc = np.mean([test_metric['roc_auc'] for test_metric in test_metrics])
     else:
-        average_precision = 0
+        pr_auc = 0
         roc_auc = 0
 
     if with_logits == "True":
         all_logit_labels = torch.cat(logit_labels)
         logits = torch.cat(logits_list, dim=0)
-        return avg_perf_metric, logits, all_logit_labels, average_precision, roc_auc
+        return avg_perf_metric, logits, all_logit_labels, pr_auc, roc_auc
     
-    return avg_perf_metric, [], [], average_precision, roc_auc
+    return avg_perf_metric, [], [], pr_auc, roc_auc
