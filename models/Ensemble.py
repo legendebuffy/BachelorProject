@@ -319,6 +319,6 @@ class LogisticRegressionModel(nn.Module):
         interaction_pairs = [f'Interaction_{i+1}_{j+1}' for i, j in combinations(range(self.num_features), 2)]
         all_names = feature_names + interaction_pairs
 
-        weights = self.linear.weight.detach().numpy().flatten()
+        weights = self.linear.weight.detach().cpu().numpy().flatten()
         bias = self.linear.bias.item()
         return all_names, weights, bias
