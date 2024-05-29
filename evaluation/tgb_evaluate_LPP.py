@@ -91,8 +91,8 @@ def eval_LPP_TGB(mode, with_logits, model_name: str, model: nn.Module, neighbor_
     :return:
     """
     perf_list = []
-    pos_logit_list = []
-    neg_logit_list = []
+    logits_list = []
+    logit_labels = []
     test_metrics = []
 
     if model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
@@ -147,21 +147,22 @@ def eval_LPP_TGB(mode, with_logits, model_name: str, model: nn.Module, neighbor_
                                                   input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1)
                 neg_logits = model[1](input_1=batch_neg_src_node_embeddings, 
                                                   input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
-                if with_logits == "True":
-                    pos_logit_list.append(pos_logits)
-                    neg_logit_list.append(neg_logits)
+
 
                 positive_probabilities = pos_logits.sigmoid()
                 negative_probabilities = neg_logits.sigmoid()
+                
+                if with_logits == "True":
+                    labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
+                    logit_labels.append(labels)
+                    batch_logits = torch.cat([pos_logits, neg_logits], dim=0)
+                    logits_list.append(batch_logits)
 
-                # positive_probabilities = model[1](input_1=batch_pos_src_node_embeddings, 
-                #                                   input_2=batch_pos_dst_node_embeddings).squeeze(dim=-1).sigmoid()
-                # negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, 
-                #                                   input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1).sigmoid()
                 if mode == "test":
                     predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
                     labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
                     test_metrics.append(get_link_prediction_metrics(predicts=predicts, labels=labels))
+                
                 # compute MRR
                 input_dict = {
                     'y_pred_pos': np.array(positive_probabilities.cpu()),
@@ -179,5 +180,8 @@ def eval_LPP_TGB(mode, with_logits, model_name: str, model: nn.Module, neighbor_
         roc_auc = 0
 
     if with_logits == "True":
-        return avg_perf_metric, torch.cat(pos_logit_list), torch.cat(neg_logit_list), average_precision, roc_auc
+        all_logit_labels = torch.cat(logit_labels)
+        logits = torch.cat(logits_list, dim=0)
+        return avg_perf_metric, logits, all_logit_labels, average_precision, roc_auc
+    
     return avg_perf_metric, [], [], average_precision, roc_auc

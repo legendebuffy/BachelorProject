@@ -167,11 +167,19 @@ def main():
         all_train_losses = []
         all_train_metrics = [[] for _ in range(2)]
         all_val_metric = []
-        train_pos_logits = []
-        train_neg_logits = []
+
+        # For saving train logits and associated labels for frozen ensemble
+        epoch_logit_labels = []
+        epoch_train_logits = []
 
         val_perf_list = []
+        val_logits_list = []
+        val_labels_list = []
+
         for epoch in range(args.num_epochs):
+            # For saving train logits and associated labels for frozen ensemble
+            train_logits_list, logit_labels = [], []
+
             start_epoch = timeit.default_timer()
             model.train()
             if args.model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
@@ -273,8 +281,6 @@ def main():
                                                   input_2=batch_dst_node_embeddings).squeeze(dim=-1)
                 negative_logits = model[1](input_1=batch_neg_src_node_embeddings, 
                                                   input_2=batch_neg_dst_node_embeddings).squeeze(dim=-1)
-                train_pos_logits.append(positive_logits)
-                train_neg_logits.append(negative_logits)
 
                 positive_probabilities = positive_logits.sigmoid()
                 negative_probabilities = negative_logits.sigmoid()
@@ -282,9 +288,14 @@ def main():
                 predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
                 predicts_logits = torch.cat([positive_logits, negative_logits], dim=0)
 
+                # For saving train logits and associated labels for frozen ensemble
+                train_logits_list.append(predicts_logits)
+
                 labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
+                logit_labels.append(labels)
 
                 loss = loss_func(input=predicts_logits, target=labels)
+
 
                 train_losses.append(loss.item())
 
@@ -300,14 +311,20 @@ def main():
                     # detach the memories and raw messages of nodes in the memory bank after each batch, so we don't back propagate to the start of time
                     model[0].memory_bank.detach_memory_bank()
 
+
+            epoch_logit_labels.append(torch.cat(logit_labels))
+            epoch_train_logits.append(torch.cat(train_logits_list))
+
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric, _, _, _, _ = eval_LPP_TGB(mode="val", with_logits='False', model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
+            val_metric, val_logits, val_logit_labels, _, _ = eval_LPP_TGB(mode="val", with_logits=args.logits, model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                       split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
                                       subset=args.subset)
             val_perf_list.append(val_metric)
+            val_logits_list.append(val_logits)
+            val_labels_list.append(val_logit_labels)
             
             epoch_time = timeit.default_timer() - start_epoch
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}, elapsed time (s): {epoch_time:.4f}')
@@ -358,22 +375,35 @@ def main():
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric, _, _, test_average_precision, test_roc_auc = eval_LPP_TGB(mode="test",with_logits='False', model_name=args.model_name, model=model, 
+        test_metric, test_logits, test_logit_labels, test_average_precision, test_roc_auc = eval_LPP_TGB(mode="test",with_logits=args.logits, model_name=args.model_name, model=model, 
                                     neighbor_sampler=full_neighbor_sampler,evaluate_idx_data_loader=test_idx_data_loader, 
                                     evaluate_data=test_data, negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                    split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
                                    subset=args.subset)
-        # To save logits for simple ensemble
+        
+        # To save logits for frozen ensemble
         if args.logits == "True":
-            #logits = torch.cat([pos_test_logits, neg_test_logits], dim=0)
-            train_pos_logits = torch.cat(train_pos_logits)
-            train_neg_logits = torch.cat(train_neg_logits)
-
-            logits = torch.cat([train_pos_logits, train_neg_logits], dim=0)
+            all_train_labels = torch.stack(epoch_logit_labels)
+            train_logits = torch.stack(epoch_train_logits)
+            val_logit_labels = torch.stack(val_labels_list)
+            val_logits = torch.stack(val_logits_list)
+            
+            logger.info(f' Train logits and labels dimensions: {train_logits.shape} and {all_train_labels.shape}')
+            logger.info(f' Validation logits and labels dimensions: {val_logits.shape} and {val_logit_labels.shape}')
+            logger.info(f' Test logits and labels dimensions: {test_logits.shape} and {test_logit_labels.shape}')
             # create dir if not exists
             folder_name = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.run_name}/"
             os.makedirs(f"{folder_name}", exist_ok=True)
-            torch.save(logits, f"{folder_name}{args.model_name}_{args.dataset_name}_logits.pth")
+            # train 
+            torch.save(train_logits, f"{folder_name}{args.model_name}_{args.dataset_name}_logits_train.pth")
+            torch.save(all_train_labels, f"{folder_name}{args.model_name}_{args.dataset_name}_labels_train.pth")
+            # val
+            torch.save(val_logits, f"{folder_name}{args.model_name}_{args.dataset_name}_logits_val.pth")
+            torch.save(val_logit_labels, f"{folder_name}{args.model_name}_{args.dataset_name}_labels_val.pth")
+            # test
+            torch.save(test_logits, f"{folder_name}{args.model_name}_{args.dataset_name}_logits_test.pth")
+            torch.save(test_logit_labels, f"{folder_name}{args.model_name}_{args.dataset_name}_labels_test.pth")
+
 
         test_time = timeit.default_timer() - start_test
         logger.info(f'Test elapsed time (s): {test_time:.4f}')
