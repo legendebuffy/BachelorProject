@@ -175,6 +175,8 @@ def main():
         val_perf_list = []
         val_logits_list = []
         val_labels_list = []
+        all_val_pr = []
+        all_val_roc = []
 
         for epoch in range(args.num_epochs):
             # For saving train logits and associated labels for frozen ensemble
@@ -317,7 +319,7 @@ def main():
 
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric, val_logits, val_logit_labels, _, _ = eval_LPP_TGB(mode="val", with_logits=args.logits, model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
+            val_metric, val_logits, val_logit_labels, val_pr_auc, val_roc_auc = eval_LPP_TGB(auc="True", with_logits=args.logits, model_name=args.model_name, model=model, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                       split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
@@ -325,6 +327,8 @@ def main():
             val_perf_list.append(val_metric)
             val_logits_list.append(val_logits)
             val_labels_list.append(val_logit_labels)
+            all_val_pr.append(val_pr_auc)
+            all_val_roc.append(val_roc_auc)
             
             epoch_time = timeit.default_timer() - start_epoch
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}, elapsed time (s): {epoch_time:.4f}')
@@ -362,7 +366,7 @@ def main():
         # Save in files
         save_model_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.run_name}/"
         os.makedirs(save_model_folder, exist_ok=True)
-        for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric], ['all_train_losses', 'all_train_metrics', 'all_val_metric']):
+        for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric, all_val_pr, all_val_roc], ['all_train_losses', 'all_train_metrics', 'all_val_metric', 'all_val_pr', 'all_val_roc']):
             np.save(save_model_folder + data_name, data)
 
         logger.info(f'Total train & validation elapsed time (s): {total_train_val_time:.6f}')
@@ -375,7 +379,7 @@ def main():
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric, test_logits, test_logit_labels, test_average_precision, test_roc_auc = eval_LPP_TGB(mode="test",with_logits=args.logits, model_name=args.model_name, model=model, 
+        test_metric, test_logits, test_logit_labels, test_pr_auc, test_roc_auc = eval_LPP_TGB(auc="True",with_logits=args.logits, model_name=args.model_name, model=model, 
                                     neighbor_sampler=full_neighbor_sampler,evaluate_idx_data_loader=test_idx_data_loader, 
                                     evaluate_data=test_data, negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                    split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
@@ -408,7 +412,7 @@ def main():
         test_time = timeit.default_timer() - start_test
         logger.info(f'Test elapsed time (s): {test_time:.4f}')
         logger.info(f'Test: {metric}: {test_metric: .4f}')
-        logger.info(f'Test: average precision: {test_average_precision: .4f}')
+        logger.info(f'Test: average precision: {test_pr_auc: .4f}')
         logger.info(f'Test: ROC AUC: {test_roc_auc: .4f}')
 
         # avoid the overlap of logs
