@@ -40,6 +40,7 @@ from evaluation.tgb_evaluate_LPP import eval_LPP_TGB
 from models.Ensemble import Ensemble
 from models.Ensemble import LogisticRegressionModel
 from utils.DataLoader import Data
+import pickle 
 
 def main():
 
@@ -214,7 +215,7 @@ def main():
         all_train_metrics = [[] for _ in range(2)]
         all_val_metric = []
         all_individual_losses = []
-
+        all_val_weight_info = {}
         val_perf_list = []
         print("Start training epochs..")
         for epoch in range(args.num_epochs):
@@ -279,12 +280,18 @@ def main():
 
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric = ensemble.eval_TGB(device=args.device, edgebank_data=train_h_data, neighbor_sampler=full_neighbor_sampler, 
+            val_metric, val_weight_info = ensemble.eval_TGB(device=args.device, edgebank_data=train_h_data, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                       split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
                                       subset=args.subset)
             val_perf_list.append(val_metric)
+
+            # Get weight info from epochs
+            for key in val_weight_info.keys():
+                if key not in all_val_weight_info:
+                    all_val_weight_info[key] = [] # Create a list for each key if not already present
+                all_val_weight_info[key].append(val_weight_info[key])  
             
             epoch_time = timeit.default_timer() - start_epoch
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}, elapsed time (s): {epoch_time:.4f}')
@@ -325,13 +332,17 @@ def main():
         for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric, all_individual_losses], ['all_train_losses', 'all_train_metrics', 'all_val_metric', 'all_individual_losses']):
             np.save(save_model_folder + data_name, data)
         
+        # saving the ensemble coefficinets
+        with open(os.path.join(save_model_folder, 'ensemble_coefficients.pkl'), 'wb') as f:
+            pickle.dump(all_val_weight_info, f)
+
         # ========================================
         # ============== Final Test ==============
         # ========================================
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric = ensemble.eval_TGB(device=args.device, edgebank_data=train_val_data, neighbor_sampler=full_neighbor_sampler, 
+        test_metric, _ = ensemble.eval_TGB(device=args.device, edgebank_data=train_val_data, neighbor_sampler=full_neighbor_sampler, 
                                    evaluate_idx_data_loader=test_idx_data_loader, evaluate_data=test_data,  
                                    negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                    split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,

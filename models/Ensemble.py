@@ -5,7 +5,7 @@ from tqdm import tqdm
 from models.EdgeBank import edge_bank_link_prediction
 from utils.DataLoader import Data
 from evaluation.tgb_evaluate_LPP import query_pred_edge_batch
-
+from itertools import combinations
 
 class Ensemble(nn.Module):
 
@@ -158,6 +158,7 @@ class Ensemble(nn.Module):
                 ):
         
         perf_list = []
+        weight_info = {}
 
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
@@ -262,7 +263,7 @@ class Ensemble(nn.Module):
 
                 combined_logits = torch.stack(logits, dim=-1)
                 output_pred = self.combiner(combined_logits, return_logits=False).squeeze(1)
-
+                
                 input_dict = {
                     'y_pred_pos': output_pred[labels == 1].cpu().detach().numpy(),
                     'y_pred_neg': output_pred[labels == 0].cpu().detach().numpy(),
@@ -271,21 +272,53 @@ class Ensemble(nn.Module):
 
                 perf_list.append(evaluator.eval(input_dict)[metric])
 
+        # extracting weight info of ensemble
+        names, weights, bias = self.combiner.get_weights()
+        weight_info['bias'] = bias
+        for name in names:
+            weight_info[name] = weights[names.index(name)]
+
         avg_perf_metric = float(np.mean(np.array(perf_list)))
 
-        return avg_perf_metric
+        return avg_perf_metric, weight_info
                                 
 
 class LogisticRegressionModel(nn.Module):
-
     def __init__(self, input_dim, output_dim):
         super(LogisticRegressionModel, self).__init__()
-        self.linear = nn.Linear(input_dim, output_dim)
+        self.num_features = input_dim
+        # number of combinations of 2 features
+        self.num_combinations = sum(1 for _ in combinations(range(self.num_features), 2))
+
+        self.linear = nn.Linear(self.num_features + self.num_combinations, output_dim)
 
     def forward(self, x, return_logits=False):
-        outputs_logit = self.linear(x)
+        interaction_terms = self.compute_interactions(x)
+        # with interaction term
+        x_with_interacts = torch.cat([x, interaction_terms], dim=1)
+        outputs_logit = self.linear(x_with_interacts)
+
         if return_logits:
             return outputs_logit
         else:
             outputs_pred = torch.sigmoid(outputs_logit)
             return outputs_pred
+
+    def compute_interactions(self, x):
+        interactions = []
+        # Interaction terms for every pair of logits (cols)
+        for i, j in combinations(range(self.num_features), 2):
+            interaction = x[:, i] * x[:, j]
+            interactions.append(interaction.unsqueeze(1))
+        # store in matrix
+        interaction_matrix = torch.cat(interactions, dim=1)
+        return interaction_matrix
+    
+    def get_weights(self):
+        feature_names = [f'Feature_{i+1}' for i in range(self.num_features)]
+        interaction_pairs = [f'Interaction_{i+1}_{j+1}' for i, j in combinations(range(self.num_features), 2)]
+        all_names = feature_names + interaction_pairs
+
+        weights = self.linear.weight.detach().numpy().flatten()
+        bias = self.linear.bias.item()
+        return all_names, weights, bias
