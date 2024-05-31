@@ -11,6 +11,8 @@ folder_name = 'saved_results/CAWN/tgbl-flight/CAWN_AH'
 all_train_losses = np.load(f'{folder_name}/all_train_losses.npy')
 all_train_metrics = np.load(f'{folder_name}/all_train_metrics.npy')
 all_val_metrics = np.load(f'{folder_name}/all_val_metric.npy')
+all_val_pr = np.load(f'{folder_name}/all_val_pr.npy')
+all_val_roc = np.load(f'{folder_name}/all_val_roc.npy')
 
 bool_plot_ensemble = 'all_individual_losses.npy' in os.listdir(folder_name)
 
@@ -24,7 +26,7 @@ data_name = folder_name.split('/')[-2]
 num_epochs = len(all_train_losses)
 len_epoch = len(all_train_losses[0])
 
-fig, ax = plt.subplots(2, 2, figsize=(15, 15))  # Changed to a 2x2 grid layout
+fig, ax = plt.subplots(2, 2, figsize=(15, 15)) 
 fig.suptitle(f"{model_name if not bool_plot_ensemble else '+'.join(model_list)}, {data_name}", fontsize=16)
 plt.tight_layout()
 plt.subplots_adjust(hspace=0.4, wspace=0.2)  # Adjusted spacing
@@ -32,7 +34,7 @@ fig.subplots_adjust(left=0.07, right=0.95, top=0.9, bottom=0.1)
 
 # Plot 1: Training Losses
 if bool_plot_ensemble:
-    for model, name in enumerate(sorted(model_list)):
+    for model, name in enumerate(model_list):
         model_loss = all_individual_losses[:, :, model].flatten()
         ax[0, 0].plot(model_loss, label=f'{name}', alpha=0.9)
 ensemble_loss = all_train_losses.flatten()
@@ -62,11 +64,11 @@ ax[0, 1].set_xlabel('Epoch')
 ax[0, 1].set_ylabel('MRR')
 
 # Plot 3: Average Precision
-ax[1, 0].plot(all_train_metrics[0], label='Average Precision')
+ax[1, 0].plot(all_val_pr, label='PR AUC')
 ax[1, 0].set_xticks(np.arange(0, num_epochs, 1))
 ax[1, 0].set_xticklabels(np.arange(1, num_epochs+1))
 ax[1, 0].set_xlim(0, num_epochs-1)
-ax[1, 0].set_ylim(0, 1.1*max(all_train_metrics[0]))
+ax[1, 0].set_ylim(0, 1.1*max(all_val_pr))
 ax[1, 0].grid()
 # ax[1, 0].legend()
 ax[1, 0].set_title('Training Average Precision')
@@ -74,11 +76,11 @@ ax[1, 0].set_xlabel('Epoch')
 ax[1, 0].set_ylabel('Average Precision')
 
 # Plot 4: ROC AUC
-ax[1, 1].plot(all_train_metrics[1], label='ROC AUC')
+ax[1, 1].plot(all_val_roc, label='ROC AUC')
 ax[1, 1].set_xticks(np.arange(0, num_epochs, 1))
 ax[1, 1].set_xticklabels(np.arange(1, num_epochs+1))
 ax[1, 1].set_xlim(0, num_epochs-1)
-ax[1, 1].set_ylim(0, 1.1*max(all_train_metrics[1]))
+ax[1, 1].set_ylim(0, 1.1*max(all_val_roc))
 ax[1, 1].grid()
 # ax[1, 1].legend()
 ax[1, 1].set_title('Training ROC AUC')
