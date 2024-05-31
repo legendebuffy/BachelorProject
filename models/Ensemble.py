@@ -79,22 +79,6 @@ class Ensemble(nn.Module):
         losses = []
         labels = []
 
-        if "EdgeBank" in self.model_names:
-            positive_probabilities, negative_probabilities = edge_bank_link_prediction(history_data=kwargs['history_data'],
-                                                                                    positive_edges=kwargs['positive_edges'],
-                                                                                    negative_edges=kwargs['negative_edges'],
-                                                                                    edge_bank_memory_mode=kwargs['edge_bank_memory_mode'],
-                                                                                    time_window_mode=kwargs['time_window_mode'],
-                                                                                    time_window_proportion=kwargs['test_ratio'])
-
-            predicts = torch.from_numpy(np.concatenate([positive_probabilities, negative_probabilities])).float()
-            predicts = predicts.to(kwargs['device'])
-            logits.append(predicts)
-
-            labels = torch.cat([torch.ones(len(positive_probabilities)), torch.zeros(len(negative_probabilities))], dim=0)
-            labels = labels.to(kwargs['device'])
-            losses.append(loss_func(input=predicts, target=labels))
-
         for model, model_name in zip(self.base_models, self.model_names):
             if model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
                 model[0].set_neighbor_sampler(train_neighbor_sampler)
@@ -114,6 +98,22 @@ class Ensemble(nn.Module):
                 labels = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=0)
                 labels = labels.to(kwargs['device'])
             losses.append(loss_func(logit, labels))
+
+        if "EdgeBank" in self.model_names:
+            positive_probabilities, negative_probabilities = edge_bank_link_prediction(history_data=kwargs['history_data'],
+                                                                                    positive_edges=kwargs['positive_edges'],
+                                                                                    negative_edges=kwargs['negative_edges'],
+                                                                                    edge_bank_memory_mode=kwargs['edge_bank_memory_mode'],
+                                                                                    time_window_mode=kwargs['time_window_mode'],
+                                                                                    time_window_proportion=kwargs['test_ratio'])
+
+            predicts = torch.from_numpy(np.concatenate([positive_probabilities, negative_probabilities])).float()
+            predicts = predicts.to(kwargs['device'])
+            logits.append(predicts)
+
+            labels = torch.cat([torch.ones(len(positive_probabilities)), torch.zeros(len(negative_probabilities))], dim=0)
+            labels = labels.to(kwargs['device'])
+            losses.append(loss_func(input=predicts, target=labels))
 
         combined_logits = torch.stack(logits, dim=-1)
         output_logit = self.combiner(combined_logits, return_logits=True).squeeze(1)
