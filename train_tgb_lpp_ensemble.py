@@ -217,6 +217,11 @@ def main():
         all_individual_losses = []
         all_val_weight_info = {}
         val_perf_list = []
+
+
+        all_val_pr = []
+        all_val_roc = []
+
         print("Start training epochs..")
         for epoch in range(args.num_epochs):
             start_epoch = timeit.default_timer()
@@ -280,12 +285,14 @@ def main():
 
             # === validation
             # after one complete epoch, evaluate the model on the validation set
-            val_metric, val_weight_info = ensemble.eval_TGB(device=args.device, edgebank_data=train_h_data, neighbor_sampler=full_neighbor_sampler, 
+            val_metric, val_weight_info, val_pr, val_auc = ensemble.eval_TGB(device=args.device, edgebank_data=train_h_data, neighbor_sampler=full_neighbor_sampler, 
                                       evaluate_idx_data_loader=val_idx_data_loader, evaluate_data=val_data,  
                                       negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                       split_mode='val', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
                                       subset=args.subset)
             val_perf_list.append(val_metric)
+            all_val_pr.append(val_pr)
+            all_val_roc.append(val_auc)
 
             # Get weight info from epochs
             for key in val_weight_info.keys():
@@ -329,7 +336,8 @@ def main():
         # Save in files
         save_model_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.run_name}/"
         os.makedirs(save_model_folder, exist_ok=True)
-        for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric, all_individual_losses], ['all_train_losses', 'all_train_metrics', 'all_val_metric', 'all_individual_losses']):
+        for data, data_name in zip([all_train_losses, all_train_metrics, all_val_metric, all_individual_losses, all_val_pr, all_val_roc ], ['all_train_losses', 'all_train_metrics', 'all_val_metric', 'all_individual_losses',
+                                                                                                                  'all_val_pr', 'all_val_roc']):
             np.save(save_model_folder + data_name, data)
         
         # saving the ensemble coefficinets
@@ -342,7 +350,7 @@ def main():
         start_test = timeit.default_timer()
         # loading the test negative samples
         dataset.load_test_ns()
-        test_metric, _ = ensemble.eval_TGB(device=args.device, edgebank_data=train_val_data, neighbor_sampler=full_neighbor_sampler, 
+        test_metric, _, test_pr_auc, test_roc_auc = ensemble.eval_TGB(device=args.device, edgebank_data=train_val_data, neighbor_sampler=full_neighbor_sampler, 
                                    evaluate_idx_data_loader=test_idx_data_loader, evaluate_data=test_data,  
                                    negative_sampler=negative_sampler, evaluator=evaluator, metric=metric,
                                    split_mode='test', k_value=10, num_neighbors=args.num_neighbors, time_gap=args.time_gap,
@@ -350,6 +358,8 @@ def main():
         test_time = timeit.default_timer() - start_test
         logger.info(f'Test elapsed time (s): {test_time:.4f}')
         logger.info(f'Test: {metric}: {test_metric: .4f}')
+        logger.info(f'Test: PR AUC: {test_pr_auc: .4f}')
+        logger.info(f'Test: ROC AUC: {test_roc_auc: .4f}')
 
         # avoid the overlap of logs
         if run < args.num_runs - 1:
