@@ -26,10 +26,10 @@ data_name = folder_name.split('/')[-2]
 num_epochs = len(all_train_losses)
 len_epoch = len(all_train_losses[0])
 
-fig, ax = plt.subplots(2, 2, figsize=(15, 15)) 
+fig, ax = plt.subplots(3, 2, figsize=(15, 20))
 fig.suptitle(f"{model_name if not bool_plot_ensemble else '+'.join(model_list)}, {data_name}", fontsize=16)
 plt.tight_layout()
-plt.subplots_adjust(hspace=0.4, wspace=0.2)  # Adjusted spacing
+plt.subplots_adjust(hspace=0.6, wspace=0.2)  # Adjusted spacing
 fig.subplots_adjust(left=0.07, right=0.95, top=0.9, bottom=0.1)
 
 # Plot 1: Training Losses
@@ -63,7 +63,7 @@ ax[0, 1].set_title(f'Validation MRR')
 ax[0, 1].set_xlabel('Epoch')
 ax[0, 1].set_ylabel('MRR')
 
-# Plot 3: Average Precision
+# Plot 3: PR ROC
 ax[1, 0].plot(all_val_pr, label='PR AUC')
 ax[1, 0].set_xticks(np.arange(0, num_epochs, 1))
 ax[1, 0].set_xticklabels(np.arange(1, num_epochs+1))
@@ -71,9 +71,9 @@ ax[1, 0].set_xlim(0, num_epochs-1)
 ax[1, 0].set_ylim(0, 1.1*max(all_val_pr))
 ax[1, 0].grid()
 # ax[1, 0].legend()
-ax[1, 0].set_title('Training Average Precision')
+ax[1, 0].set_title('Validation PR ROC')
 ax[1, 0].set_xlabel('Epoch')
-ax[1, 0].set_ylabel('Average Precision')
+ax[1, 0].set_ylabel('PR ROC')
 
 # Plot 4: ROC AUC
 ax[1, 1].plot(all_val_roc, label='ROC AUC')
@@ -83,8 +83,30 @@ ax[1, 1].set_xlim(0, num_epochs-1)
 ax[1, 1].set_ylim(0, 1.1*max(all_val_roc))
 ax[1, 1].grid()
 # ax[1, 1].legend()
-ax[1, 1].set_title('Training ROC AUC')
+ax[1, 1].set_title('Validation ROC AUC')
 ax[1, 1].set_xlabel('Epoch')
 ax[1, 1].set_ylabel('ROC AUC')
+
+# New Plot 5: Training PR AUC
+ax[2, 0].plot(all_train_metrics[0], label='Training PR AUC')
+ax[2, 0].set_xticks(np.arange(0, num_epochs, 1))
+ax[2, 0].set_xticklabels(np.arange(1, num_epochs+1))
+ax[2, 0].set_xlim(0, num_epochs-1)
+ax[2, 0].set_ylim(0, 1.1*max(all_train_metrics[0]))
+ax[2, 0].grid()
+ax[2, 0].set_title('Training PR AUC')
+ax[2, 0].set_xlabel('Epoch')
+ax[2, 0].set_ylabel('PR AUC')
+
+# New Plot 6: Training ROC AUC
+ax[2, 1].plot(all_train_metrics[1], label='Training ROC AUC')
+ax[2, 1].set_xticks(np.arange(0, num_epochs, 1))
+ax[2, 1].set_xticklabels(np.arange(1, num_epochs+1))
+ax[2, 1].set_xlim(0, num_epochs-1)
+ax[2, 1].set_ylim(0, 1.1*max(all_train_metrics[1]))
+ax[2, 1].grid()
+ax[2, 1].set_title('Training ROC AUC')
+ax[2, 1].set_xlabel('Epoch')
+ax[2, 1].set_ylabel('ROC AUC')
 
 plt.show()
