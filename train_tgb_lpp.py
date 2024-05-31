@@ -412,7 +412,7 @@ def main():
         test_time = timeit.default_timer() - start_test
         logger.info(f'Test elapsed time (s): {test_time:.4f}')
         logger.info(f'Test: {metric}: {test_metric: .4f}')
-        logger.info(f'Test: average precision: {test_pr_auc: .4f}')
+        logger.info(f'Test: PR AUC: {test_pr_auc: .4f}')
         logger.info(f'Test: ROC AUC: {test_roc_auc: .4f}')
 
         # avoid the overlap of logs

@@ -6,6 +6,7 @@ from models.EdgeBank import edge_bank_link_prediction
 from utils.DataLoader import Data
 from evaluation.tgb_evaluate_LPP import query_pred_edge_batch
 from itertools import combinations
+from utils.metrics import get_link_prediction_metrics
 
 class Ensemble(nn.Module):
 
@@ -160,6 +161,7 @@ class Ensemble(nn.Module):
                 ):
         
         perf_list = []
+        test_metrics = []
         weight_info = {}
 
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
@@ -250,6 +252,8 @@ class Ensemble(nn.Module):
                         if len(labels) == 0:
                             labels = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=0)
                             labels = labels.to(device)
+                        test_metrics.append(get_link_prediction_metrics(predicts=torch.cat([pos_logits.sigmoid(), neg_logits.sigmoid()], dim=0), 
+                                                                        labels=labels))
 
                 if "EdgeBank" in self.model_names:
                     positive_probabilities, negative_probabilities = edge_bank_link_prediction(history_data=kwargs['history_data'],
@@ -262,6 +266,7 @@ class Ensemble(nn.Module):
                     predicts = torch.from_numpy(np.concatenate([positive_probabilities[:1], negative_probabilities])).float()
                     predicts = predicts.to(device)
                     logits.append(predicts)
+                    test_metrics.append(get_link_prediction_metrics(predicts=predicts, labels=labels))
 
                 combined_logits = torch.stack(logits, dim=-1)
                 output_pred = self.combiner(combined_logits, return_logits=False).squeeze(1)
@@ -274,6 +279,8 @@ class Ensemble(nn.Module):
 
                 perf_list.append(evaluator.eval(input_dict)[metric])
 
+                
+
         # extracting weight info of ensemble
         names, weights, bias = self.combiner.get_weights()
         weight_info['bias'] = bias
@@ -281,8 +288,10 @@ class Ensemble(nn.Module):
             weight_info[name] = weights[names.index(name)]
 
         avg_perf_metric = float(np.mean(np.array(perf_list)))
+        pr_auc = np.mean([test_metric['pr_auc'] for test_metric in test_metrics])
+        roc_auc = np.mean([test_metric['roc_auc'] for test_metric in test_metrics])
 
-        return avg_perf_metric, weight_info
+        return avg_perf_metric, weight_info, pr_auc, roc_auc
                                 
 
 class LogisticRegressionModel(nn.Module):
