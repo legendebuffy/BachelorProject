@@ -121,13 +121,15 @@ class Ensemble(nn.Module):
 
 
     def train_step(self, loss_func, optimizer, train_neighbor_sampler, **kwargs):
+        weight_ensemble_individual = 0.8
+
         optimizer.zero_grad()
         output, individual_losses, labels = self.forward(loss_func, train_neighbor_sampler, **kwargs)
 
         weights = torch.ones(len(individual_losses))/len(individual_losses)
         weighted_losses = sum(weights*individual_losses)
         ensemble_loss = loss_func(output, labels)
-        loss = ensemble_loss*0.5 + weighted_losses*0.5
+        loss = ensemble_loss*weight_ensemble_individual + weighted_losses*(1-weight_ensemble_individual)
 
         loss.backward()
         optimizer.step()
