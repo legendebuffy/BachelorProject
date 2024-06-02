@@ -226,6 +226,12 @@ def main():
         for epoch in range(args.num_epochs):
             start_epoch = timeit.default_timer()
             ensemble.train()
+            # initialize memory bank for JODIE, DyRep, TGN
+            for model, model_name in zip(ensemble.base_models, ensemble.model_names):
+                if model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
+                    model[0].set_neighbor_sampler(train_neighbor_sampler)
+                if model_name in ['JODIE', 'DyRep', 'TGN']:
+                    model[0].memory_bank.__init_memory_bank__()
 
             # store train losses and metrics
             train_losses, train_metrics = [], []

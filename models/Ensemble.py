@@ -81,10 +81,7 @@ class Ensemble(nn.Module):
         labels = []
 
         for model, model_name in zip(self.base_models, self.model_names):
-            if model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
-                model[0].set_neighbor_sampler(train_neighbor_sampler)
-            if model_name in ['JODIE', 'DyRep', 'TGN']:
-                model[0].memory_bank.__init_memory_bank__()
+            
             batch_src_node_embeddings, batch_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=True)
             batch_neg_src_node_embeddings, batch_neg_dst_node_embeddings = self.compute_embeddings(model, model_name, kwargs, positive=False)
 
@@ -124,7 +121,6 @@ class Ensemble(nn.Module):
     def train_step(self, loss_func, optimizer, train_neighbor_sampler, **kwargs):
         weight_ensemble_individual = 0.8
 
-        optimizer.zero_grad()
         output, individual_losses, labels = self.forward(loss_func, train_neighbor_sampler, **kwargs)
 
         weights = torch.ones(len(individual_losses))/len(individual_losses)
@@ -132,6 +128,7 @@ class Ensemble(nn.Module):
         ensemble_loss = loss_func(output, labels)
         loss = ensemble_loss*weight_ensemble_individual + weighted_losses*(1-weight_ensemble_individual)
 
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
@@ -163,6 +160,10 @@ class Ensemble(nn.Module):
         perf_list = []
         test_metrics = []
         weight_info = {}
+        
+        for model, model_name in zip(self.base_models, self.model_names):
+            if model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
+                        model[0].set_neighbor_sampler(neighbor_sampler)
 
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
@@ -193,9 +194,6 @@ class Ensemble(nn.Module):
                 labels = []
                         
                 for model, model_name in zip(self.base_models, self.model_names):
-            
-                    if model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
-                        model[0].set_neighbor_sampler(neighbor_sampler)
 
                     model.eval()
 
@@ -301,13 +299,16 @@ class LogisticRegressionModel(nn.Module):
         # number of combinations of 2 features
         self.num_combinations = sum(1 for _ in combinations(range(self.num_features), 2))
 
-        self.linear = nn.Linear(self.num_features + self.num_combinations, output_dim)
+        self.linear = nn.Linear(self.num_features, output_dim)
 
     def forward(self, x, return_logits=False):
-        interaction_terms = self.compute_interactions(x)
-        # with interaction term
-        x_with_interacts = torch.cat([x, interaction_terms], dim=1)
-        outputs_logit = self.linear(x_with_interacts)
+        # interaction_terms = self.compute_interactions(x)
+        # # with interaction term
+        # x_with_interacts = torch.cat([x, interaction_terms], dim=1)
+        # outputs_logit = self.linear(x_with_interacts)
+
+        # without interaction term
+        outputs_logit = self.linear(x)
 
         if return_logits:
             return outputs_logit
