@@ -10,11 +10,12 @@ from utils.metrics import get_link_prediction_metrics
 
 class Ensemble(nn.Module):
 
-    def __init__(self, base_models, combiner, model_names):
+    def __init__(self, base_models, combiner, model_names, ensemble_loss_weight):
         super(Ensemble, self).__init__()
         self.base_models = nn.ModuleList(base_models)
         self.combiner = combiner
         self.model_names = model_names
+        self.ensemble_loss_weight = ensemble_loss_weight
 
 
     def compute_embeddings(self, model, model_name, kwargs, positive):
@@ -119,14 +120,15 @@ class Ensemble(nn.Module):
 
 
     def train_step(self, loss_func, optimizer, train_neighbor_sampler, **kwargs):
-        weight_ensemble_individual = 0.8
 
         output, individual_losses, labels = self.forward(loss_func, train_neighbor_sampler, **kwargs)
 
         weights = torch.ones(len(individual_losses))/len(individual_losses)
-        weighted_losses = sum(weights*individual_losses)
+        weighted_individual_losses = sum(weights*individual_losses)
         ensemble_loss = loss_func(output, labels)
-        loss = ensemble_loss*weight_ensemble_individual + weighted_losses*(1-weight_ensemble_individual)
+        loss_ens = ensemble_loss * self.ensemble_loss_weight
+        loss_ind = weighted_individual_losses * (1 - self.ensemble_loss_weight)
+        loss = loss_ens + loss_ind
 
         optimizer.zero_grad()
         loss.backward()

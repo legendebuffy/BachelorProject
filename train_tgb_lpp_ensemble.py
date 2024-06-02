@@ -179,7 +179,7 @@ def main():
             combiner = LogisticRegressionModel(input_dim=len(ensemble_models_list), output_dim=1)
 
             # Ensemble model
-            ensemble = Ensemble(ensemble_models, combiner, ensemble_models_list)
+            ensemble = Ensemble(ensemble_models, combiner, ensemble_models_list, args.ensemble_loss_w)
 
             logger.info(f'model -> {ensemble}')
             logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(ensemble) * 4} B, '
