@@ -4,15 +4,13 @@ import matplotlib.pyplot as plt
 import os
 
 # Import npy file
-#folder_name = 'DTU_Test/data_plots/individual/DyGFormer/tgbl-wiki/run1'
-folder_name = 'saved_results/CAWN/tgbl-flight/CAWN_AH'
-#folder_name = 'DTU_Test/data_plots/individual/TGN/tgbl-wiki_VARM'
+# folder_name = 'saved_results/DyGFormer_EdgeBank/tgbl-comment/w_02_bs_1500'
+folder_name = 'saved_results/DyGFormer_TCL/tgbl-wiki/w_08'
 
 all_train_losses = np.load(f'{folder_name}/all_train_losses.npy')
 all_train_metrics = np.load(f'{folder_name}/all_train_metrics.npy')
 all_val_metrics = np.load(f'{folder_name}/all_val_metric.npy')
-all_val_pr = np.load(f'{folder_name}/all_val_pr.npy')
-all_val_roc = np.load(f'{folder_name}/all_val_roc.npy')
+
 
 bool_plot_ensemble = 'all_individual_losses.npy' in os.listdir(folder_name)
 
@@ -20,16 +18,19 @@ if bool_plot_ensemble:
     all_individual_losses = np.load(f'{folder_name}/all_individual_losses.npy')
     model_list = folder_name.split('/')[-3].split('_')
     num_models = len(model_list)
+    ensemble_coefficients = np.load(f'{folder_name}/ensemble_coefficients.pkl', allow_pickle=True)
 else:
     model_name = folder_name.split('/')[-3]
+all_val_pr = np.load(f'{folder_name}/all_val_pr.npy')
+all_val_roc = np.load(f'{folder_name}/all_val_roc.npy')
 data_name = folder_name.split('/')[-2]
 num_epochs = len(all_train_losses)
 len_epoch = len(all_train_losses[0])
 
-fig, ax = plt.subplots(3, 2, figsize=(15, 20))
+fig, ax = plt.subplots(2, 2, figsize=(15, 15)) 
 fig.suptitle(f"{model_name if not bool_plot_ensemble else '+'.join(model_list)}, {data_name}", fontsize=16)
 plt.tight_layout()
-plt.subplots_adjust(hspace=0.6, wspace=0.2)  # Adjusted spacing
+plt.subplots_adjust(hspace=0.4, wspace=0.2)  # Adjusted spacing
 fig.subplots_adjust(left=0.07, right=0.95, top=0.9, bottom=0.1)
 
 # Plot 1: Training Losses
@@ -63,50 +64,35 @@ ax[0, 1].set_title(f'Validation MRR')
 ax[0, 1].set_xlabel('Epoch')
 ax[0, 1].set_ylabel('MRR')
 
-# Plot 3: PR ROC
-ax[1, 0].plot(all_val_pr, label='PR AUC')
+# Plot 3: Average Precision
+# if not bool_plot_ensemble:
+ax[1, 0].plot(all_val_pr, label='PR AUC (validation)')
+ax[1, 0].plot(all_val_roc, label='ROC AUC (validation)')
+ax[1, 0].plot(all_train_metrics[0], label='PR AUC (training)')
+ax[1, 0].plot(all_train_metrics[1], label='ROC AUC (training)')
+ax[1, 0].set_ylim(0, 1.1*max(max(e) for e in [all_val_pr, all_val_roc] + [i for i in all_train_metrics]))
+
 ax[1, 0].set_xticks(np.arange(0, num_epochs, 1))
 ax[1, 0].set_xticklabels(np.arange(1, num_epochs+1))
 ax[1, 0].set_xlim(0, num_epochs-1)
-ax[1, 0].set_ylim(0, 1.1*max(all_val_pr))
 ax[1, 0].grid()
-# ax[1, 0].legend()
-ax[1, 0].set_title('Validation PR ROC')
+ax[1, 0].legend()
+ax[1, 0].set_title('Validation AUC metrics')
 ax[1, 0].set_xlabel('Epoch')
-ax[1, 0].set_ylabel('PR ROC')
+ax[1, 0].set_ylabel('AUC score')
 
-# Plot 4: ROC AUC
-ax[1, 1].plot(all_val_roc, label='ROC AUC')
-ax[1, 1].set_xticks(np.arange(0, num_epochs, 1))
-ax[1, 1].set_xticklabels(np.arange(1, num_epochs+1))
-ax[1, 1].set_xlim(0, num_epochs-1)
-ax[1, 1].set_ylim(0, 1.1*max(all_val_roc))
-ax[1, 1].grid()
-# ax[1, 1].legend()
-ax[1, 1].set_title('Validation ROC AUC')
-ax[1, 1].set_xlabel('Epoch')
-ax[1, 1].set_ylabel('ROC AUC')
-
-# New Plot 5: Training PR AUC
-ax[2, 0].plot(all_train_metrics[0], label='Training PR AUC')
-ax[2, 0].set_xticks(np.arange(0, num_epochs, 1))
-ax[2, 0].set_xticklabels(np.arange(1, num_epochs+1))
-ax[2, 0].set_xlim(0, num_epochs-1)
-ax[2, 0].set_ylim(0, 1.1*max(all_train_metrics[0]))
-ax[2, 0].grid()
-ax[2, 0].set_title('Training PR AUC')
-ax[2, 0].set_xlabel('Epoch')
-ax[2, 0].set_ylabel('PR AUC')
-
-# New Plot 6: Training ROC AUC
-ax[2, 1].plot(all_train_metrics[1], label='Training ROC AUC')
-ax[2, 1].set_xticks(np.arange(0, num_epochs, 1))
-ax[2, 1].set_xticklabels(np.arange(1, num_epochs+1))
-ax[2, 1].set_xlim(0, num_epochs-1)
-ax[2, 1].set_ylim(0, 1.1*max(all_train_metrics[1]))
-ax[2, 1].grid()
-ax[2, 1].set_title('Training ROC AUC')
-ax[2, 1].set_xlabel('Epoch')
-ax[2, 1].set_ylabel('ROC AUC')
+# ensemble coeff
+if bool_plot_ensemble:
+    for key, value in ensemble_coefficients.items():
+        ax[1, 1].plot(value, label=key)
+    # ax[1, 1].set_ylim(0, 1.1*max([max(e) for e in ensemble_coefficients.values()]))
+    ax[1, 1].set_xticks(np.arange(0, num_epochs, 1))
+    ax[1, 1].set_xticklabels(np.arange(1, num_epochs+1))
+    ax[1, 1].set_xlim(0, num_epochs-1)
+    ax[1, 1].grid()
+    ax[1, 1].legend()
+    ax[1, 1].set_title('Ensemble combiner coefficients')
+    ax[1, 1].set_xlabel('Epoch')
+    ax[1, 1].set_ylabel('Coefficient')
 
 plt.show()
