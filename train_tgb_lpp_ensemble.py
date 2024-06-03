@@ -179,14 +179,16 @@ def main():
             combiner = LogisticRegressionModel(input_dim=len(ensemble_models_list), output_dim=1)
 
             # Ensemble model
-            ensemble = Ensemble(ensemble_models, combiner, ensemble_models_list, args.ensemble_loss_w)
+            ensemble = Ensemble(ensemble_models, combiner, ensemble_models_list)
 
             logger.info(f'model -> {ensemble}')
             logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(ensemble) * 4} B, '
                         f'{get_parameter_sizes(ensemble) * 4 / 1024} KB, {get_parameter_sizes(ensemble) * 4 / 1024 / 1024} MB.')
             
-            optimizer = create_optimizer(model=ensemble, optimizer_name=args.optimizer,
-                                        learning_rate=args.learning_rate, weight_decay=args.weight_decay)
+            # Multiple optimizers for each base model and combiner
+            optimizers = [create_optimizer(model=base_model, optimizer_name=args.optimizer, learning_rate=args.learning_rate, weight_decay=args.weight_decay)
+                          for base_model in ensemble.base_models]
+            combiner_optimizer = create_optimizer(model=ensemble.combiner, optimizer_name=args.optimizer, learning_rate=args.combiner_lr, weight_decay=args.weight_decay)
             
             # Loss-function for individual models: Binary Cross-Entropy Loss on logits
             loss_func = nn.BCEWithLogitsLoss()
@@ -276,7 +278,7 @@ def main():
                         'time_window_mode':args.time_window_mode,
                         'test_ratio':args.test_ratio,
                         'device': args.device}
-                loss, predictions, labels, individual_loss = ensemble.train_step(loss_func, optimizer, train_neighbor_sampler,  **kwargs)
+                loss, predictions, labels, individual_loss = ensemble.train_step(loss_func, optimizers, combiner_optimizer, train_neighbor_sampler,  **kwargs)
 
                 train_metrics.append(get_link_prediction_metrics(predictions, labels))
                 train_losses.append(loss)
@@ -307,7 +309,7 @@ def main():
                 all_val_weight_info[key].append(val_weight_info[key])  
             
             epoch_time = timeit.default_timer() - start_epoch
-            logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}, elapsed time (s): {epoch_time:.4f}')
+            logger.info(f'Epoch: {epoch + 1}, 'f'learning rates: {[optimizer.param_groups[0]["lr"] for optimizer in optimizers + [combiner_optimizer]]}, 'f'train loss: {np.mean(train_losses):.4f}, elapsed time (s): {epoch_time:.4f}')
             for n_metric, metric_name in enumerate(train_metrics[0].keys()):
                 logger.info(f'train {metric_name}, {np.mean([train_metric[metric_name] for train_metric in train_metrics]):.4f}')
 

@@ -61,7 +61,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--logits', type=str, default="False", help='to save logits')
     parser.add_argument('--subset', type=str, default="False", help='to save subset of data')
     parser.add_argument('--run_name', type=str, default='run_name', help='Name of the run')
-    parser.add_argument('--ensemble_loss_w', type=float, default=0.5, help='Weight for combiner loss in total ensemble loss, [0 ; 1]')
+    parser.add_argument('--combiner_lr', type=float, default=1e-3, help='Learning rate for the combiner')
 
     try:
         args = parser.parse_args()

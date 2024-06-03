@@ -7,15 +7,15 @@ from utils.DataLoader import Data
 from evaluation.tgb_evaluate_LPP import query_pred_edge_batch
 from itertools import combinations
 from utils.metrics import get_link_prediction_metrics
+import torch.nn.init as init
 
 class Ensemble(nn.Module):
 
-    def __init__(self, base_models, combiner, model_names, ensemble_loss_weight):
+    def __init__(self, base_models, combiner, model_names):
         super(Ensemble, self).__init__()
         self.base_models = nn.ModuleList(base_models)
         self.combiner = combiner
         self.model_names = model_names
-        self.ensemble_loss_weight = ensemble_loss_weight
 
 
     def compute_embeddings(self, model, model_name, kwargs, positive):
@@ -119,20 +119,27 @@ class Ensemble(nn.Module):
         return output_logit, torch.tensor(losses), labels
 
 
-    def train_step(self, loss_func, optimizer, train_neighbor_sampler, **kwargs):
+    def train_step(self, loss_func, optimizers, combiner_optimizer, train_neighbor_sampler, **kwargs):
 
         output, individual_losses, labels = self.forward(loss_func, train_neighbor_sampler, **kwargs)
 
-        weights = torch.ones(len(individual_losses))/len(individual_losses)
-        weighted_individual_losses = sum(weights*individual_losses)
-        ensemble_loss = loss_func(output, labels)
-        loss_ens = ensemble_loss * self.ensemble_loss_weight
-        loss_ind = weighted_individual_losses * (1 - self.ensemble_loss_weight)
-        loss = loss_ens + loss_ind
+        loss = loss_func(output, labels)
 
-        optimizer.zero_grad()
+        # Zero gradients for all optimizers
+        for optimizer in optimizers:
+            optimizer.zero_grad()
+        combiner_optimizer.zero_grad()
+
+        # Backward pass
         loss.backward()
-        optimizer.step()
+
+        # Step for all optimizers
+        for optimizer in optimizers:
+            optimizer.step()
+        combiner_optimizer.step()
+
+        if min(self.combiner.linear.weight[0][:self.combiner.num_features]) < 0:
+            self.combiner.linear.weight[0][:self.combiner.num_features] = torch.clamp(self.combiner.linear.weight[0][:self.combiner.num_features], min=0)
 
         for model, model_name in zip(self.base_models, self.model_names):
             if model_name in ['JODIE', 'DyRep', 'TGN']:
@@ -301,16 +308,20 @@ class LogisticRegressionModel(nn.Module):
         # number of combinations of 2 features
         self.num_combinations = sum(1 for _ in combinations(range(self.num_features), 2))
 
-        self.linear = nn.Linear(self.num_features, output_dim)
+        self.linear = nn.Linear(self.num_features + self.num_combinations, output_dim)
+        init.constant_(self.linear.weight[0][:self.num_features], 1)
+        init.constant_(self.linear.weight[0][self.num_features:], 0)
+        if self.linear.bias is not None:
+            init.zeros_(self.linear.bias)
 
     def forward(self, x, return_logits=False):
-        # interaction_terms = self.compute_interactions(x)
-        # # with interaction term
-        # x_with_interacts = torch.cat([x, interaction_terms], dim=1)
-        # outputs_logit = self.linear(x_with_interacts)
+        interaction_terms = self.compute_interactions(x)
+        # with interaction term
+        x_with_interacts = torch.cat([x, interaction_terms], dim=1)
+        outputs_logit = self.linear(x_with_interacts)
 
         # without interaction term
-        outputs_logit = self.linear(x)
+        # outputs_logit = self.linear(x)
 
         if return_logits:
             return outputs_logit
