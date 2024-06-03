@@ -26,9 +26,10 @@ all_val_roc = np.load(f'{folder_name}/all_val_roc.npy')
 data_name = folder_name.split('/')[-2]
 num_epochs = len(all_train_losses)
 len_epoch = len(all_train_losses[0])
+run_name = folder_name.split('/')[-1]
 
 fig, ax = plt.subplots(2, 2, figsize=(15, 15)) 
-fig.suptitle(f"{model_name if not bool_plot_ensemble else '+'.join(model_list)}, {data_name}", fontsize=16)
+fig.suptitle(f"{model_name if not bool_plot_ensemble else '+'.join(model_list)}, {data_name}, ({run_name})", fontsize=16)
 plt.tight_layout()
 plt.subplots_adjust(hspace=0.4, wspace=0.2)  # Adjusted spacing
 fig.subplots_adjust(left=0.07, right=0.95, top=0.9, bottom=0.1)
@@ -84,7 +85,10 @@ ax[1, 0].set_ylabel('AUC score')
 # ensemble coeff
 if bool_plot_ensemble:
     for key, value in ensemble_coefficients.items():
+        if key == 'bias':
+            continue
         ax[1, 1].plot(value, label=key)
+    ax[1, 1].plot(ensemble_coefficients['bias'], label='bias')
     # ax[1, 1].set_ylim(0, 1.1*max([max(e) for e in ensemble_coefficients.values()]))
     ax[1, 1].set_xticks(np.arange(0, num_epochs, 1))
     ax[1, 1].set_xticklabels(np.arange(1, num_epochs+1))
