@@ -28,6 +28,8 @@ def ensemble_test(data, test_mask, neg_sampler, split_mode, subset='False', edge
         num_batches = math.ceil(len(data['sources'][test_mask]) / BATCH_SIZE)
     perf_list = []
     logits_list = []  # List to store logits for each batch
+    test_labels = []  # List to store labels for each batch
+
     for batch_idx in tqdm(range(num_batches)):
         start_idx = batch_idx * BATCH_SIZE
         end_idx = min(start_idx + BATCH_SIZE, len(data['sources'][test_mask]))
@@ -44,6 +46,9 @@ def ensemble_test(data, test_mask, neg_sampler, split_mode, subset='False', edge
 
             y_pred = edgebank.predict_link(query_src, query_dst)
             logits_list.append(y_pred)  # Append logits to the list
+            # labels should be a torch tensor
+            labels = np.concatenate([np.array([1])] + [np.array([0])]*len(neg_batch))
+            test_labels.append(labels)
             # compute MRR
             input_dict = {
                 "y_pred_pos": np.array([y_pred[0]]),
@@ -57,7 +62,7 @@ def ensemble_test(data, test_mask, neg_sampler, split_mode, subset='False', edge
 
     perf_metrics = float(np.mean(perf_list))
 
-    return perf_metrics, logits_list
+    return perf_metrics, logits_list, test_labels
 
 def get_edgebank_logits(subset, data):
     # data loading with `numpy`
@@ -87,9 +92,9 @@ def get_edgebank_logits(subset, data):
     dataset.load_val_ns()
 
     # testing ...
-    performance, logits = ensemble_test(data, val_mask, neg_sampler, split_mode='val', subset=subset, edgebank=edgebank, metric=metric)
+    performance, logits, labels = ensemble_test(data, val_mask, neg_sampler, split_mode='val', subset=subset, edgebank=edgebank, metric=metric)
 
-    return performance, logits
+    return performance, logits, labels
 
 def get_args_edgebank():
     parser = argparse.ArgumentParser('*** TGB: EdgeBank ***')
@@ -124,12 +129,14 @@ SUBSET = args.subset
 #run_name = args.run
 
 start_val = timeit.default_timer()
-performance, logits = get_edgebank_logits(subset=SUBSET, data=DATA)
+performance, logits, labels = get_edgebank_logits(subset=SUBSET, data=DATA)
 end_val = timeit.default_timer()
-
-print(len(logits), len(logits[0]), type(logits),type(logits[0]))
+# print(labels)
+print(len(labels), labels[0].shape, type(logits),type(logits[0]))
+print(len(logits), logits[0].shape, type(logits),type(logits[0]))
 print(f"\nRESULTS: {performance}")
 
 folder_name = f"./saved_results/EdgeBank/{args.data}/{args.run_name}/"
 os.makedirs(folder_name, exist_ok=True)
-torch.save(logits, f"{folder_name}EdgeBank_{args.data}_logits.pth")
+torch.save(logits, f"{folder_name}EdgeBank_{args.data}_logits_test.pth")
+torch.save(labels, f"{folder_name}EdgeBank_{args.data}_labels_test.pth")
