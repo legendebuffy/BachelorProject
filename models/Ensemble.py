@@ -138,9 +138,9 @@ class Ensemble(nn.Module):
             optimizer.step()
         combiner_optimizer.step()
 
-        if min(self.combiner.linear.weight[0][:self.combiner.num_features]) < 0:
-            with torch.no_grad():
-                self.combiner.linear.weight[:, :self.combiner.num_features].clamp_(min=0)
+        # if min(self.combiner.linear.weight[0][:self.combiner.num_features]) < 0:
+        #     with torch.no_grad():
+        #         self.combiner.linear.weight[:, :self.combiner.num_features].clamp_(min=0)
 
         for model, model_name in zip(self.base_models, self.model_names):
             if model_name in ['JODIE', 'DyRep', 'TGN']:
