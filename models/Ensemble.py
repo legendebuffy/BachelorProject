@@ -139,7 +139,8 @@ class Ensemble(nn.Module):
         combiner_optimizer.step()
 
         if min(self.combiner.linear.weight[0][:self.combiner.num_features]) < 0:
-            self.combiner.linear.weight[0][:self.combiner.num_features] = torch.clamp(self.combiner.linear.weight[0][:self.combiner.num_features], min=0)
+            with torch.no_grad():
+                self.combiner.linear.weight[:, :self.combiner.num_features].clamp_(min=0)
 
         for model, model_name in zip(self.base_models, self.model_names):
             if model_name in ['JODIE', 'DyRep', 'TGN']:
@@ -309,7 +310,7 @@ class LogisticRegressionModel(nn.Module):
         self.num_combinations = sum(1 for _ in combinations(range(self.num_features), 2))
 
         self.linear = nn.Linear(self.num_features + self.num_combinations, output_dim)
-        init.constant_(self.linear.weight[0][:self.num_features], 1)
+        init.constant_(self.linear.weight[0][:self.num_features], -1)
         init.constant_(self.linear.weight[0][self.num_features:], 0)
         if self.linear.bias is not None:
             init.zeros_(self.linear.bias)
