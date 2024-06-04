@@ -73,11 +73,11 @@ def get_edgebank_logits(subset, data):
     # get masks
     train_mask = dataset.train_mask
     val_mask = dataset.val_mask
-
+    test_mask = dataset.test_mask
     # data for memory in edgebank
-    hist_src = np.concatenate([data['sources'][train_mask]])
-    hist_dst = np.concatenate([data['destinations'][train_mask]])
-    hist_ts = np.concatenate([data['timestamps'][train_mask]])
+    hist_src = np.concatenate([data['sources'][train_mask]] + [data['sources'][val_mask]])
+    hist_dst = np.concatenate([data['destinations'][train_mask]] + [data['sources'][val_mask]])
+    hist_ts = np.concatenate([data['timestamps'][train_mask]] + [data['sources'][val_mask]])
 
     # Set EdgeBank with memory updater
     edgebank = EdgeBankPredictor(
@@ -89,10 +89,10 @@ def get_edgebank_logits(subset, data):
     neg_sampler = dataset.negative_sampler
 
     # loading the validation negative samples
-    dataset.load_val_ns()
+    dataset.load_test_ns()
 
     # testing ...
-    performance, logits, labels = ensemble_test(data, val_mask, neg_sampler, split_mode='val', subset=subset, edgebank=edgebank, metric=metric)
+    performance, logits, labels = ensemble_test(data, test_mask, neg_sampler, split_mode='test', subset=subset, edgebank=edgebank, metric=metric)
 
     return performance, logits, labels
 
@@ -105,7 +105,7 @@ def get_args_edgebank():
     parser.add_argument('--seed', type=int, help='Random seed', default=1)
     parser.add_argument('--mem_mode', type=str, help='Memory mode', default='fixed_time_window', choices=['unlimited', 'fixed_time_window'])
     parser.add_argument('--time_window_ratio', type=float, help='Test window ratio', default=0.15)
-    parser.add_argument('--bs', type=int, help='Batch size', default=200)
+    parser.add_argument('--bs', type=int, help='Batch size', default=1000)
     parser.add_argument('--run_name', type=str, help='run_name', default="YAHNI")
 
     try:
@@ -128,9 +128,8 @@ SUBSET = args.subset
 #TIME_WINDOW_RATIO = args.time_window_ratio
 #run_name = args.run
 
-start_val = timeit.default_timer()
 performance, logits, labels = get_edgebank_logits(subset=SUBSET, data=DATA)
-end_val = timeit.default_timer()
+
 # print(labels)
 print(len(labels), labels[0].shape, type(logits),type(logits[0]))
 print(len(logits), logits[0].shape, type(logits),type(logits[0]))
