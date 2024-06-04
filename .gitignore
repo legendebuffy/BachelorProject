@@ -116,6 +116,7 @@ tgb/datasets/tgbl_review/*
 tgb/datasets/tgbl_coin/*
 tgb/datasets/tgbl_comment/*
 tgb/datasets/tgbl_flight/*
+DTU_Test/Test_folder/
 
 # products
 scripts/*
