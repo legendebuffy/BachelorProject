@@ -310,7 +310,7 @@ class LogisticRegressionModel(nn.Module):
         self.num_combinations = sum(1 for _ in combinations(range(self.num_features), 2))
 
         self.linear = nn.Linear(self.num_features + self.num_combinations, output_dim)
-        init.constant_(self.linear.weight[0][:self.num_features], -1)
+        init.constant_(self.linear.weight[0][:self.num_features], 1)
         init.constant_(self.linear.weight[0][self.num_features:], 0)
         if self.linear.bias is not None:
             init.zeros_(self.linear.bias)
