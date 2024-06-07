@@ -193,10 +193,11 @@ for category, updates in new2_combined_data.items():
 # Display the dictionary for sub-wiki as an example
 #print(all_data.keys(), all_data["sub-wiki"].keys(), all_data["sub-wiki"]["TGN"][0])
 
+#_____________________________________- PLOTTING -______________________________________#
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
-# Base models and possible variations or abbreviations
+# model groups with their variations
 base_models = ['TGN', 'DyRep', 'DyGFormer', 'GraphMixer', 'TCL', 'TGAT', 'CAWN', 'EdgeBank', 'Best_comb']
 variation_mapping = {
     'TGN': ['TGN', 'F_EdgeB_TGN', 'EdgeB_TGN'],
@@ -210,14 +211,17 @@ variation_mapping = {
     'Best_comb': ['Best_2']
 }
 
-# order of categories for sorting purposes
+# order of categories
 category_order = {
     'Individual': 0,
     'Frozen': 1,
     'Unfrozen': 2
 }
+# Names for the Best_comb over each dataset
+best_comb_names = ['DyG+CAW', 'DyG+GrM', 'DyG+GrM', 'DyG+GrM', 'DyG+CAW']
 
-def plot_data(all_data, base_models, variation_mapping, category_order, metric='MRR'):
+def plot_data(base_models, metric='MRR', with_individuals=True):
+
     if metric == 'MRR':
         metric_index = 0
 
@@ -234,7 +238,8 @@ def plot_data(all_data, base_models, variation_mapping, category_order, metric='
             'Individual': '#ff9999',    # Light Red
             'Frozen': '#ff4d4d',        # Medium Red
             'Unfrozen': '#b30000'       # Dark Red
-}
+        }
+
 
     elif metric == 'ROC AUC':
         metric_index = 2
@@ -245,9 +250,20 @@ def plot_data(all_data, base_models, variation_mapping, category_order, metric='
             'Unfrozen': '#006400'       # Dark Green
         }
 
+    if not with_individuals:
+        color_map.pop('Individual')
+        category_order.pop('Individual')
+
+        base_models = base_models[:-2]
+        for key in variation_mapping:
+            variation_mapping[key] = [item for item in variation_mapping[key] if '_' in item]
+
+        keys_to_remove = list(variation_mapping.keys())[-2:]
+        for key in keys_to_remove:
+            del variation_mapping[key]
 
 
-    fig, axes = plt.subplots(nrows=5, ncols=1, figsize=(10, 20), sharex=True)
+    fig, axes = plt.subplots(nrows=5, ncols=1, figsize=(10, 20), sharex=True, dpi=115)
 
     bar_width = 0.15
     gap_width = 0.1  # Standard gap between groups
@@ -256,35 +272,56 @@ def plot_data(all_data, base_models, variation_mapping, category_order, metric='
     # Iterate over each category and the corresponding axis
     for ax, (category, data) in zip(axes, all_data.items()):
         x_position = 0  # reset position for each category
-        tick_positions = []  # list to store x-tick positions
+        tick_positions = [] 
 
         for base_model in base_models:
             # Sorting variants according to the defined order
-            variants = sorted(variation_mapping.get(base_model, []), 
-                            key=lambda v: category_order['Individual'] if '_' not in v else category_order['Frozen'] if 'F_' in v else category_order['Unfrozen'])
+            if not with_individuals:
+                variants = sorted(variation_mapping.get(base_model, []), 
+                  key=lambda v: category_order['Frozen'] if 'F_' in v else category_order['Unfrozen'])
+            else:   
+                variants = sorted(variation_mapping.get(base_model, []), 
+                                key=lambda v: category_order['Individual'] if '_' not in v else category_order['Frozen'] if 'F_' in v else category_order['Unfrozen'])
             positions = [x_position + i * bar_width for i in range(len(variants))]
 
             # Plot each variant
             for pos, variant in zip(positions, variants):
                 if variant in data:
                     value = data[variant][metric_index]  # the metric value
-                    color = color_map['Individual'] if '_' not in variant else color_map['Frozen'] if 'F_' in variant else color_map['Unfrozen']
-                    ax.bar(pos, value, bar_width, label=variant, color=color)
+
+                    if not with_individuals:
+                        color = color_map['Frozen'] if 'F_' in variant else color_map['Unfrozen']
+                    else:
+
+                        color = color_map['Individual'] if '_' not in variant else color_map['Frozen'] if 'F_' in variant else color_map['Unfrozen']
+                    ax.bar(pos, value, bar_width, label=variant, color=color, zorder=3)
             
-            # Calculate the center position for x-tick of this group
-            center_position = positions[len(variants) // 2]
+            # center position for x-tick of this group
+            if with_individuals:
+                center_position = positions[len(variants) // 2]
+            else:
+                center_position = (positions[0] + positions[1]) / 2
             tick_positions.append(center_position)
             # Apply extra gap for the last two model groups
             if base_model in ['CAWN','EdgeBank', 'Best_comb']:
                 x_position += len(variants) * bar_width + extra_gap
             else:
                 x_position += len(variants) * bar_width + gap_width
-
+        
         ax.set_title(f'Data for {category}')
         ax.set_xticks(tick_positions)
-        ax.set_xticklabels(base_models)
+        if not with_individuals:
+            ax.set_xticklabels(base_models)
+        else:
+            ax.set_xticklabels(base_models[:-1]+[""])
         ax.set_ylim(0, 1)  # Maybe adjust?
+        ax.yaxis.grid(True, zorder=0)
+        ax.set_yticks([i/4 for i in range(0, 4)])
 
+    # Hardcoding the Best_comb labels
+    if with_individuals:
+        for i, custom_name in enumerate(best_comb_names):
+            axes[i].text(0.935, -0.19, custom_name, transform=axes[i].transAxes, ha='right')
 
     axes[-1].set_xlabel('Model Groups')
     fig.supylabel(metric)
@@ -293,10 +330,10 @@ def plot_data(all_data, base_models, variation_mapping, category_order, metric='
     fig.legend(handles=legend_elements, loc='upper right')
 
     plt.tight_layout()
-    fig.subplots_adjust(left=0.072, right=0.952, top=0.966, bottom=0.06, hspace=0.347)
+    fig.subplots_adjust(left=0.072, right=0.94, top=0.966, bottom=0.065, hspace=0.36)
     plt.show()
 
 
 ### Plottin the data
 # metrics = MRR, PR AUC, ROC AUC
-plot_data(all_data, base_models, variation_mapping, category_order,metric="MRR")
+plot_data(base_models, metric="MRR", with_individuals=False)
