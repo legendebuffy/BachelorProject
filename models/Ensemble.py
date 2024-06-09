@@ -303,17 +303,18 @@ class Ensemble(nn.Module):
                                 
 
 class LogisticRegressionModel(nn.Module):
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, input_dim, output_dim, manual_init=True):
         super(LogisticRegressionModel, self).__init__()
         self.num_features = input_dim
         # number of combinations of 2 features
         self.num_combinations = sum(1 for _ in combinations(range(self.num_features), 2))
 
         self.linear = nn.Linear(self.num_features + self.num_combinations, output_dim)
-        init.constant_(self.linear.weight[0][:self.num_features], 1)
-        init.constant_(self.linear.weight[0][self.num_features:], 0)
-        if self.linear.bias is not None:
-            init.zeros_(self.linear.bias)
+        if manual_init:
+            init.constant_(self.linear.weight[0][:self.num_features], 1)
+            init.constant_(self.linear.weight[0][self.num_features:], 0)
+            if self.linear.bias is not None:
+                init.zeros_(self.linear.bias)
 
     def forward(self, x, return_logits=False):
         interaction_terms = self.compute_interactions(x)

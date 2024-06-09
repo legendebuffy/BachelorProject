@@ -13,7 +13,7 @@ import torch
 
 # internal imports
 from tgb.linkproppred.evaluate import Evaluator
-from old_but_gold.modules.edgebank_predictor import EdgeBankPredictor
+from edgebank_predictor import EdgeBankPredictor
 from tgb.utils.utils import set_random_seed
 from tgb.linkproppred.dataset import LinkPropPredDataset
 from tgb.utils.utils import save_results
@@ -107,7 +107,7 @@ def get_edgebank_logits(subset, data):
 def get_args_edgebank():
     parser = argparse.ArgumentParser('*** TGB: EdgeBank ***')
     parser.add_argument('--subset', type=str, help='Subset of the dataset', default='False', choices=['True', 'False'])
-    parser.add_argument('-d', '--data', type=str, help='Dataset name', default='tgbl-comment', choices=['tgbl-coin', 'tgbl-comment', 'tgbl-flight', 'tgbl-review', 'tgbl-wiki'])
+    parser.add_argument('-d', '--data', type=str, help='Dataset name', default='tgbl-wiki', choices=['tgbl-coin', 'tgbl-comment', 'tgbl-flight', 'tgbl-review', 'tgbl-wiki'])
     parser.add_argument('--run', type=str, help='Run name', default='run1')
     parser.add_argument('--k_value', type=int, help='k_value for computing ranking metrics', default=10)
     parser.add_argument('--seed', type=int, help='Random seed', default=1)
