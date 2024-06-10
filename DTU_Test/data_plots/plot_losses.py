@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 import os
 
 # Import npy file
-# folder_name = 'saved_results/DyGFormer_EdgeBank/tgbl-comment/w_02_bs_1500'
-folder_name = 'saved_results/DyGFormer_TCL/tgbl-wiki/w_08'
+# folder_name = 'YAHNI/ADAM/PCA/HorseLameness'
+# folder_name = 'saved_results/CAWN/tgbl-flight/CAWN_MAY29'
+folder_name = 'saved_results/DyRep_EdgeBank/tgbl-flight/ENS_bs200_lre6_clre2_gange1komma5'
 
 all_train_losses = np.load(f'{folder_name}/all_train_losses.npy')
 all_train_metrics = np.load(f'{folder_name}/all_train_metrics.npy')
@@ -65,22 +66,35 @@ ax[0, 1].set_title(f'Validation MRR')
 ax[0, 1].set_xlabel('Epoch')
 ax[0, 1].set_ylabel('MRR')
 
-# Plot 3: Average Precision
-# if not bool_plot_ensemble:
-ax[1, 0].plot(all_val_pr, label='PR AUC (validation)')
-ax[1, 0].plot(all_val_roc, label='ROC AUC (validation)')
-ax[1, 0].plot(all_train_metrics[0], label='PR AUC (training)')
-ax[1, 0].plot(all_train_metrics[1], label='ROC AUC (training)')
-ax[1, 0].set_ylim(0, 1.1*max(max(e) for e in [all_val_pr, all_val_roc] + [i for i in all_train_metrics]))
+# Plot 3: PR and ROC AUC
+if bool_plot_ensemble:
+    ax[1, 0].plot(all_val_pr, label='PR AUC (validation)')
+    ax[1, 0].plot(all_val_roc, label='ROC AUC (validation)')
+    ax[1, 0].plot(all_train_metrics[0], label='PR AUC (training)')
+    ax[1, 0].plot(all_train_metrics[1], label='ROC AUC (training)')
+    ax[1, 0].set_ylim(0, 1.1*max(max(e) for e in [all_val_pr, all_val_roc] + [i for i in all_train_metrics]))
 
-ax[1, 0].set_xticks(np.arange(0, num_epochs, 1))
-ax[1, 0].set_xticklabels(np.arange(1, num_epochs+1))
-ax[1, 0].set_xlim(0, num_epochs-1)
-ax[1, 0].grid()
-ax[1, 0].legend()
-ax[1, 0].set_title('Validation AUC metrics')
-ax[1, 0].set_xlabel('Epoch')
-ax[1, 0].set_ylabel('AUC score')
+    ax[1, 0].set_xticks(np.arange(0, num_epochs, 1))
+    ax[1, 0].set_xticklabels(np.arange(1, num_epochs+1))
+    ax[1, 0].set_xlim(0, num_epochs-1)
+    ax[1, 0].grid()
+    ax[1, 0].legend()
+    ax[1, 0].set_title('AUC metrics')
+    ax[1, 0].set_xlabel('Epoch')
+    ax[1, 0].set_ylabel('AUC score')
+else:
+    ax[1, 0].plot(all_train_metrics[0], label='PR AUC')
+    ax[1, 0].plot(all_train_metrics[1], label='ROC AUC')
+    ax[1, 0].set_ylim(0, 1.1*max(max(e) for e in [i for i in all_train_metrics]))
+
+    ax[1, 0].set_xticks(np.arange(0, num_epochs, 1))
+    ax[1, 0].set_xticklabels(np.arange(1, num_epochs+1))
+    ax[1, 0].set_xlim(0, num_epochs-1)
+    ax[1, 0].grid()
+    ax[1, 0].legend()
+    ax[1, 0].set_title('Train AUC metrics')
+    ax[1, 0].set_xlabel('Epoch')
+    ax[1, 0].set_ylabel('AUC score')
 
 # ensemble coeff
 if bool_plot_ensemble:
@@ -98,5 +112,18 @@ if bool_plot_ensemble:
     ax[1, 1].set_title('Ensemble combiner coefficients')
     ax[1, 1].set_xlabel('Epoch')
     ax[1, 1].set_ylabel('Coefficient')
+else:
+    ax[1, 1].plot(all_val_pr, label='PR AUC')
+    ax[1, 1].plot(all_val_roc, label='ROC AUC')
+    ax[1, 1].set_ylim(0, 1.1*max(max(e) for e in [all_val_pr, all_val_roc]))
+
+    ax[1, 1].set_xticks(np.arange(0, num_epochs, 1))
+    ax[1, 1].set_xticklabels(np.arange(1, num_epochs+1))
+    ax[1, 1].set_xlim(0, num_epochs-1)
+    ax[1, 1].grid()
+    ax[1, 1].legend()
+    ax[1, 1].set_title('Validation AUC metrics')
+    ax[1, 1].set_xlabel('Epoch')
+    ax[1, 1].set_ylabel('AUC score')
 
 plt.show()

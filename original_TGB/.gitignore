@@ -111,12 +111,6 @@ ENV/
 .vscode/
 DG_data/*/*
 processed_data/*/*
-tgb/datasets/tgbl_wiki/*
-tgb/datasets/tgbl_review/*
-tgb/datasets/tgbl_coin/*
-tgb/datasets/tgbl_comment/*
-tgb/datasets/tgbl_flight/*
-DTU_Test/Test_folder/
 
 # products
 scripts/*
@@ -124,9 +118,3 @@ saved_models/*
 saved_results/*
 arXiv/*
 cc_env.sh
-tgb_env/
-hpc_runs/
-hpc_run.sh
-DTU_Test/data_plots/ensemble/
-DTU_Test/data_plots/individual/
-saved_logits/
